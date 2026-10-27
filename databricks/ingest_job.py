@@ -7,7 +7,14 @@ import sys
 
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "ijson", "httpx", "psycopg[binary]", "databricks-sdk"])
 
-sys.path.insert(0, "src")
+from pathlib import Path as _Path
+
+for _base in [_Path.cwd(), *_Path.cwd().parents]:
+    if (_base / "src" / "openpayer").exists():
+        sys.path.insert(0, str(_base / "src"))
+        break
+else:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/evil-robot/openpayer"])
 
 from databricks.sdk import WorkspaceClient  # noqa: E402
 
