@@ -43,7 +43,7 @@ def main() -> int:
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, W, 10], fill=TEAL)
     d.text((64, 52), "OpenPayer", font=font(64, True), fill=INK)
-    d.text((64, 132), "What payers actually reimburse, from their own published files.", font=font(30), fill=INK)
+    d.text((64, 132), "Real rates from the pricing files payers publish.", font=font(30), fill=INK)
     d.text((64, 176), "Real negotiated and fee schedule rates for a short list of billing codes.", font=font(24), fill=GREY)
 
     all_vals: list[float] = []

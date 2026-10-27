@@ -12,7 +12,7 @@ from .store import DB_PATH
 
 app = FastAPI(title="OpenPayer", description="Rate search and benchmarks from CMS price transparency files")
 
-PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify", "/og.png"}
+PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify", "/og.png", "/assets/medtruth-lockup.svg", "/favicon.svg"}
 
 OG_TITLE = "OpenPayer: what payers actually reimburse"
 OG_DESC = (
@@ -36,6 +36,8 @@ def og_head(canonical: str = "https://openpayer.medtruth.care/") -> str:
         f'<meta name="twitter:title" content="{OG_TITLE}"><meta name="twitter:description" content="{OG_DESC}">'
         f'<meta name="twitter:image" content="{img}">'
         f'<meta name="description" content="{OG_DESC}">'
+        '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
+        '<meta name="robots" content="noindex, nofollow, noarchive">'
     )
 
 
@@ -44,6 +46,20 @@ def og_image():
     from pathlib import Path
 
     return FileResponse(Path(__file__).parent / "assets" / "og.png", media_type="image/png")
+
+
+@app.get("/assets/medtruth-lockup.svg")
+def lockup_image():
+    from pathlib import Path
+
+    return FileResponse(Path(__file__).parent / "assets" / "medtruth-lockup.svg", media_type="image/svg+xml")
+
+
+@app.get("/favicon.svg")
+def favicon_image():
+    from pathlib import Path
+
+    return FileResponse(Path(__file__).parent / "assets" / "favicon.svg", media_type="image/svg+xml")
 
 
 @app.middleware("http")
@@ -70,8 +86,10 @@ def _bare(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
         f"<html><head><title>{html.escape(title)} | OpenPayer</title>{og_head()}<style>{STYLE}</style></head>"
         "<body><header class='site-header'><div class='wrap'>"
-        "<a class='brand' href='/'>OpenPayer</a><span class='brand-sub'>What payers actually reimburse, from their own published files</span>"
-        f"</div></header><div class='auth-wrap'>{body}</div></body></html>"
+        "<a class='brand' href='/'>OpenPayer</a>"
+        "</div></header><div class='auth-wrap'>"
+        "<p class='auth-logo'><img src='/assets/medtruth-lockup.svg' alt='MedTruth' width='216' height='44'></p>"
+        f"{body}</div></body></html>"
     )
 
 
@@ -227,6 +245,7 @@ font:inherit;font-weight:600;font-size:1rem;cursor:pointer}
 .auth-note{border-top:1px solid var(--rule);margin-top:1.6rem;padding-top:1rem;color:var(--muted);font-size:.9rem}
 .auth-note li{margin:.3rem 0}
 .auth-brand{display:flex;align-items:baseline;gap:.8rem}
+.auth-logo{margin:0 0 1.4rem}.auth-logo img{display:block;height:auto;max-width:100%}
 """
 
 
@@ -331,7 +350,7 @@ def _header(request: Request) -> str:
     )
     return (
         "<header class='site-header'><div class='wrap'>"
-        "<a class='brand' href='/'>OpenPayer</a><span class='brand-sub'>What payers actually reimburse, from their own published files</span>"
+        "<a class='brand' href='/'>OpenPayer</a>"
         f"<span class='head-right'>{right}</span></div></header>"
     )
 

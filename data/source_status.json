@@ -1,0 +1,14 @@
+{
+ "Cox HealthPlans": {
+  "payer": "Cox HealthPlans",
+  "source_type": "tic",
+  "index_url": "https://www.coxhealthplans.com/MRF/2026-09-16_Cox%20Health%20Systems%20Insurance%20Company-CHSICE_index.json",
+  "index_last_updated_on": "2026-09-16",
+  "files_in_index": 89,
+  "files_attempted": 40,
+  "files_with_rows": 23,
+  "rows_kept": 179,
+  "failures": 0,
+  "pulled_at": "2026-10-27T19:00:00+00:00"
+ }
+}
