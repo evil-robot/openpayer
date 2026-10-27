@@ -117,6 +117,19 @@ def parse_mrf(path: str, allowed: set[str], payer: str = "", source_url: str = "
     """
     if not allowed:
         raise ValueError("empty code allowlist: refusing to parse unfiltered (would pull the full MRF)")
+    try:
+        # Fast path: most payer files are valid JSON. Parse in place and
+        # skip the sanitized copy entirely (that copy is a byte-by-byte
+        # pass, which on a multi-gigabyte national file costs more than
+        # the parse itself). Rows are materialized before anything is
+        # yielded, so a file that turns out dirty fails atomically here
+        # and never emits partial rows.
+        yield from list(_parse_clean(path, allowed, payer, source_url))
+        return
+    except Exception:
+        pass
+    # Dirty file (trailing commas and friends): pay for the sanitized
+    # copy and parse that instead. A failure here is real and propagates.
     clean = _sanitized_copy(path)
     try:
         yield from _parse_clean(str(clean), allowed, payer, source_url)
