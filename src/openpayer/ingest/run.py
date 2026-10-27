@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from ..config import DATA_DIR, Source, code_set, load_codes, load_sources
-from .discover import download_to_temp, iter_toc_files, load_toc
+from .discover import collect_toc, download_to_temp
 from .mrf import parse_mrf, write_jsonl
 
 
@@ -56,17 +56,17 @@ def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4) -> i
     for src in sources:
         urls: list[str] = list(src.direct_mrf_urls)
         if src.toc_url:
-            toc = load_toc(src.toc_url)
-            toc_dates[src.payer] = str(toc.get("last_updated_on", ""))
-            all_files = [f["location"] for f in iter_toc_files(toc)]
-            toc_totals[src.payer] = len(all_files)
-            urls.extend(all_files)
+            entries, index_total, index_date = collect_toc(src.toc_url, limit=limit)
+            toc_dates[src.payer] = index_date
+            toc_totals[src.payer] = index_total
+            urls.extend(f["location"] for f in entries)
         if not urls:
             print(f"- {src.payer}: no files, skipped")
             continue
-        if limit is not None:
-            urls = urls[:limit]
-        print(f"- {src.payer}: {len(urls)} in-network files")
+        if src.toc_url:
+            print(f"- {src.payer}: taking {len(urls)} of {toc_totals[src.payer]} in-network files from its index")
+        else:
+            print(f"- {src.payer}: {len(urls)} direct in-network files")
         jobs.extend((src, i, url) for i, url in enumerate(urls))
 
     if dry_run:

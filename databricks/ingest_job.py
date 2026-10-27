@@ -19,7 +19,7 @@ else:
 from databricks.sdk import WorkspaceClient  # noqa: E402
 
 from openpayer.config import code_set, load_codes, load_sources  # noqa: E402
-from openpayer.ingest.discover import iter_toc_files, load_toc  # noqa: E402
+from openpayer.ingest.discover import collect_toc, download_to_temp  # noqa: E402
 from openpayer.ingest.mrf import parse_mrf, write_jsonl  # noqa: E402
 from openpayer.pg_store import ensure_schema, insert_rows  # noqa: E402
 import tempfile  # noqa: E402
@@ -52,53 +52,82 @@ assert allowed, "empty allowlist: refusing to pull"
 ensure_schema()
 total = 0
 import re as _re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as _dt, timezone as _tz
 
 from openpayer.pg_store import upsert_source_status
 
+only_raw = os.environ.get("OPENPAYER_ONLY", "")
+only = {p.strip().lower() for p in only_raw.split(",") if p.strip()}
+try:
+    n_workers = max(1, int(os.environ.get("OPENPAYER_WORKERS", "3")))
+except ValueError:
+    n_workers = 3
+print(f"config: limit={limit} workers={n_workers} only={sorted(only) or 'all'}")
+
+
+def _pull_file(job):
+    """Download, filter to the allowlist, and load one MRF. Returns stats."""
+    src, i, url = job
+    slug = _re.sub(r"[^a-z0-9]+", "-", src.payer.lower()).strip("-")
+    fname = f"{slug}-{i:04d}.jsonl.gz"
+    tmp = None
+    try:
+        if url.startswith(("http://", "https://")):
+            tmp = download_to_temp(url, suffix=".json.gz" if url.split("?")[0].endswith(".gz") else ".json")
+            local = str(tmp)
+        else:
+            local = url
+        rows = list(parse_mrf(local, allowed, payer=src.payer, source_url=url))
+        kept = 0
+        if rows:
+            import psycopg
+
+            from openpayer import pg_store
+
+            with psycopg.connect(pg_store.dsn()) as con:
+                con.execute("DELETE FROM rates WHERE loaded_file = %s", [fname])
+            kept = insert_rows(rows, fname)
+        return {"attempted": 1, "with_rows": 1 if kept else 0, "rows": kept, "failures": 0}
+    except Exception as exc:
+        print(f"FAILED {url}: {exc}")
+        return {"attempted": 1, "with_rows": 0, "rows": 0, "failures": 1}
+    finally:
+        if tmp is not None:
+            Path(tmp).unlink(missing_ok=True)
+
+
 for src in load_sources():
+    if only and src.payer.lower() not in only:
+        print(f"- {src.payer}: skipped by OPENPAYER_ONLY")
+        continue
     urls = list(src.direct_mrf_urls)
     toc_date = ""
     files_in_index = len(urls)
     if src.toc_url:
-        _toc = load_toc(src.toc_url)
-        toc_date = str(_toc.get("last_updated_on", ""))
-        _all = [f["location"] for f in iter_toc_files(_toc)]
-        files_in_index = len(_all)
-        urls.extend(_all)
-    if limit:
-        urls = urls[:limit]
-    stats = {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0}
-    for i, url in enumerate(urls):
-        tmp = None
         try:
-            if url.startswith(("http://", "https://")):
-                from openpayer.ingest.discover import download_to_temp
-
-                tmp = download_to_temp(url, suffix=".json.gz" if url.split("?")[0].endswith(".gz") else ".json")
-                local = str(tmp)
-            else:
-                local = url
-            stats["files_attempted"] += 1
-            rows = list(parse_mrf(local, allowed, payer=src.payer, source_url=url))
-            if rows:
-                import psycopg
-
-                from openpayer import pg_store
-
-                slug = _re.sub(r"[^a-z0-9]+", "-", src.payer.lower()).strip("-")
-                fname = f"{slug}-{i:04d}.jsonl.gz"
-                with psycopg.connect(pg_store.dsn()) as con:
-                    con.execute("DELETE FROM rates WHERE loaded_file = %s", [fname])
-                total += insert_rows(rows, fname)
-                stats["files_with_rows"] += 1
-                stats["rows_kept"] += len(rows)
+            entries, index_total, toc_date = collect_toc(src.toc_url, limit=limit)
         except Exception as exc:
-            stats["failures"] += 1
-            print(f"FAILED {url}: {exc}")
-        finally:
-            if tmp is not None:
-                Path(tmp).unlink(missing_ok=True)
+            print(f"- {src.payer}: index unreadable, skipped: {exc}")
+            continue
+        files_in_index = index_total
+        urls.extend(f["location"] for f in entries)
+        print(f"- {src.payer}: taking {len(urls)} of {files_in_index} files from index dated {toc_date}")
+    elif limit:
+        urls = urls[:limit]
+    if not urls:
+        print(f"- {src.payer}: no files, skipped")
+        continue
+    stats = {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0}
+    jobs = [(src, i, url) for i, url in enumerate(urls)]
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        for r in pool.map(_pull_file, jobs):
+            stats["files_attempted"] += r["attempted"]
+            stats["files_with_rows"] += r["with_rows"]
+            stats["rows_kept"] += r["rows"]
+            stats["failures"] += r["failures"]
+    total += stats["rows_kept"]
+    print(f"- {src.payer}: {stats}")
     upsert_source_status(
         [
             {
