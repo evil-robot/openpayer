@@ -68,8 +68,10 @@ def health():
 
 def _bare(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
-        f"<html><head><title>{html.escape(title)}</title>{og_head()}<style>{STYLE}</style></head>"
-        f"<body><h1>OpenPayer</h1>{body}</body></html>"
+        f"<html><head><title>{html.escape(title)} | OpenPayer</title>{og_head()}<style>{STYLE}</style></head>"
+        "<body><header class='site-header'><div class='wrap'>"
+        "<a class='brand' href='/'>OpenPayer</a><span class='brand-sub'>What payers actually reimburse, from their own published files</span>"
+        f"</div></header><div class='auth-wrap'>{body}</div></body></html>"
     )
 
 
@@ -78,10 +80,19 @@ def sign_in_page():
     domains = ", ".join(sorted(authmod.allowed_domains()))
     return _bare(
         "Sign in",
-        "<p>OpenPayer at this address is for the MedTruth team. "
-        f"Sign-in is by email link for @{domains} addresses.</p>"
-        '<form method="post" action="/sign-in"><label>Email <input type="email" name="email" required size="34"></label> '
-        '<button type="submit">Email me a sign-in link</button></form>',
+        "<h1>Sign in</h1>"
+        "<p class='auth-sub'>OpenPayer at this address is for the MedTruth team. "
+        f"Enter your work email. If it is an @{domains} address, a sign-in link is on its way.</p>"
+        '<form class="auth-form" method="post" action="/sign-in">'
+        '<label for="email">Work email</label>'
+        '<input id="email" type="email" name="email" required autocomplete="email" placeholder="you@medtruth.care">'
+        '<button class="btn-primary" type="submit">Email me a sign-in link</button></form>'
+        "<div class='auth-note'><ul>"
+        "<li>The link works for 7 days and signs you in for 90 days on this device.</li>"
+        "<li>Use your work address. Personal email will not get a link, and the page will not tell you why.</li>"
+        "<li>Nothing arrived? Check spam first, then request again. A few requests per 15 minutes are allowed.</li>"
+        "<li>Your address is used only to send the link and hold your session. Nothing else.</li>"
+        "</ul></div>",
     )
 
 
@@ -102,7 +113,20 @@ def sign_in_submit(request: Request, email: str = Form(...)):
             token = authmod.create_token(email)
             authmod.send_sign_in_link(email, token)
     # Same answer for every address, allowed or not.
-    return _bare("Check your email", "<p>If that address may sign in, a link is on its way. It expires in 7 days.</p>")
+    safe_email = html.escape(email.strip())
+    return _bare(
+        "Check your email",
+        "<h1>Check your email</h1>"
+        f"<p class='auth-sub'>If <strong>{safe_email}</strong> may sign in, a link is on its way. It expires in 7 days.</p>"
+        '<form class="auth-form" method="post" action="/sign-in">'
+        f'<input type="hidden" name="email" value="{safe_email}">'
+        '<button class="btn-primary" type="submit">Resend the link</button></form>'
+        "<p><a href='/sign-in'>Use a different address</a></p>"
+        "<div class='auth-note'><ul>"
+        "<li>Nothing after a few minutes? Check spam, then resend. A few resends per 15 minutes are allowed.</li>"
+        "<li>The newest link is the one that works. Earlier links for the same address still count down from when they were sent.</li>"
+        "</ul></div>",
+    )
 
 
 @app.get("/confirm", response_class=HTMLResponse)
@@ -112,8 +136,9 @@ def confirm_page(token: str = ""):
     safe = html.escape(token)
     return _bare(
         "Confirm sign-in",
-        "<p>Press the button to finish signing in.</p>"
-        f'<button id="go" data-token="{safe}">Sign in to OpenPayer</button>'
+        "<h1>One more press</h1>"
+        "<p class='auth-sub'>Press the button to finish signing in. This extra step exists so a mail scanner that reads your email cannot spend the link before you do.</p>"
+        f'<div class="auth-form"><button class="btn-primary" id="go" data-token="{safe}">Sign in to OpenPayer</button></div>'
         "<script>document.getElementById('go').addEventListener('click',function(){"
         "setTimeout(function(){location.href='/auth/verify?token='+encodeURIComponent("
         "document.getElementById('go').dataset.token);},350);});</script>",
@@ -124,7 +149,12 @@ def confirm_page(token: str = ""):
 def auth_verify(token: str = ""):
     email = authmod.verify_token(token)
     if not email:
-        return _bare("Link expired", "<p>That link is spent or expired. <a href='/sign-in'>Request a new one</a>.</p>")
+        return _bare(
+            "Link expired",
+            "<h1>That link will not work</h1>"
+            "<p class='auth-sub'>It is spent or past 7 days. Request a fresh one and use the newest email.</p>"
+            "<p><a href='/sign-in'>Request a new link</a></p>",
+        )
     resp = RedirectResponse("/", status_code=303)
     raw = authmod.create_session(email)
     resp.set_cookie(
@@ -181,6 +211,22 @@ font-size:.86rem;line-height:1.5;max-width:350px;display:none;box-shadow:0 4px 1
 #tip strong{font-size:1.05rem}#tip .src{color:var(--st-gray-300);font-size:.74rem;word-break:break-all}
 #tip a{color:var(--st-green-100)}
 .fresh-fresh{color:var(--st-green-700);font-weight:600}.fresh-stale{color:var(--st-gold-600);font-weight:600}
+.auth-wrap{max-width:460px;margin:0 auto;padding:3.2rem 1.25rem 4rem}
+.auth-wrap h1{font-size:1.9rem;margin:.2rem 0 .8rem}
+.auth-sub{color:var(--muted);max-width:44ch}
+.auth-form{margin:1.6rem 0 1.2rem}
+.auth-form label{display:block;font-weight:600;font-size:.92rem;margin-bottom:.45rem}
+.auth-form input[type=email]{width:100%;min-height:48px;padding:.65rem .8rem;border:1px solid var(--st-gray-300);
+border-radius:8px;font:inherit;font-size:1rem;background:#fff;color:var(--ink)}
+.auth-form input[type=email]::placeholder{color:var(--st-gray-500)}
+.auth-form input[type=email]:focus{outline:3px solid var(--focus);outline-offset:1px;border-color:var(--focus)}
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;min-height:48px;width:100%;
+padding:.7rem 1.1rem;margin-top:.9rem;background:var(--st-green-700);color:#fff;border:0;border-radius:8px;
+font:inherit;font-weight:600;font-size:1rem;cursor:pointer}
+.btn-primary:hover{background:var(--st-green-600)}
+.auth-note{border-top:1px solid var(--rule);margin-top:1.6rem;padding-top:1rem;color:var(--muted);font-size:.9rem}
+.auth-note li{margin:.3rem 0}
+.auth-brand{display:flex;align-items:baseline;gap:.8rem}
 """
 
 
