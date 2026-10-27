@@ -16,8 +16,12 @@ end to end:
 
 - Codes: 99213, 99446, 99447, 99448, 99449, 99451, 99452, G2212
 - Payer: Cox HealthPlans, Transparency in Coverage index dated 2026-09-16
-- Result of the sample pull: 179 rate rows kept from 23 source files
-  (9.1 KB gzipped kept, 780 KB searchable database)
+- First local sample (40 of 89 files): 179 rate rows from 23 files.
+- Full index, pulled server-side by the Databricks job on 2026-10-27:
+  507 rate rows from 53 files, zero failures. The live site reads these
+  from Lakebase, so its numbers update with every refresh. The table
+  below is the first local sample, kept as the reproducible starting
+  point; run the pull to regenerate it.
 
 | Code | Rate type | n | p25 | Median | p75 |
 |---|---|---|---|---|---|
