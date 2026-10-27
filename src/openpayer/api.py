@@ -15,6 +15,10 @@ STYLE = """
 body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:980px;padding:0 1rem;color:#13151E;background:#F0EEEB}
 table{border-collapse:collapse;width:100%;background:#fff}th,td{border:1px solid #ccc;padding:.4rem .6rem;text-align:right}
 th:first-child,td:first-child{text-align:left}.note{color:#444;font-size:.9rem}
+.dot{cursor:pointer}.dot:hover{stroke:#13151E;stroke-width:2.6}
+#tip{position:fixed;z-index:10;pointer-events:none;background:#13151E;color:#F0EEEB;padding:.55rem .7rem;
+font-size:.85rem;line-height:1.45;max-width:340px;display:none;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#tip strong{font-size:1rem}#tip .src{color:#c9c6c0;font-size:.75rem;word-break:break-all}
 """
 
 
@@ -219,10 +223,17 @@ def _market_strip() -> str:
             y = mid - 6 + (j % 3) * 6
             who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
             title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
+            attrs = (
+                f'class="dot" tabindex="0" data-code="{html.escape(c.code)}" data-rate="${v:,.2f}" '
+                f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
+                f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
+                f'data-src="{html.escape(str(r["source_url"]))}" '
+                f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
+            )
             if r["negotiated_type"] == "negotiated":
-                parts.append(f'<circle cx="{X(v):.1f}" cy="{y}" r="4" fill="#13151E"><title>{title}</title></circle>')
+                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#13151E"><title>{title}</title></circle>')
             else:
-                parts.append(f'<circle cx="{X(v):.1f}" cy="{y}" r="4" fill="#F0EEEB" stroke="#13151E" stroke-width="1.4"><title>{title}</title></circle>')
+                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#F0EEEB" stroke="#13151E" stroke-width="1.4"><title>{title}</title></circle>')
         parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 13}" x2="{X(med):.1f}" y2="{mid + 13}" stroke="#13151E" stroke-width="3"/>')
         parts.append(
             f'<text x="{x0 + plot_w + 12}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
@@ -237,7 +248,29 @@ def _market_strip() -> str:
         "Percentage rates are not dollars and are left out. Exact values for every dot are in the benchmark table above and on each code page.</p>"
         + "".join(parts)
         + "<p class='note'>Source: Cox HealthPlans machine-readable files, index dated September 16, 2026, pulled live by this system. "
-        "Counts (n) are printed on every row. A row with n=0 means no dollar rate for that code appeared in the files pulled so far, not a rate of zero.</p>"
+        "Counts (n) are printed on every row. A row with n=0 means no dollar rate for that code appeared in the files pulled so far, not a rate of zero. "
+        "Hover or tab to any dot for its full detail panel.</p>"
+        + '<div id="tip" role="status"></div>'
+        + """<script>
+(function(){
+  var tip=document.getElementById('tip');
+  function show(d){
+    var pos='Market for this code: median '+d.median+', middle half '+d.band;
+    tip.innerHTML='<strong>'+d.rate+'</strong> &nbsp;'+d.code+'<br>'+d.payer+' | '+d.type+
+      '<br>'+d.who+(d.tin?'<br>TIN '+d.tin:'')+(d.npi && d.who.indexOf(d.npi)<0?'<br>NPI '+d.npi:'')+
+      '<br>'+pos+'<br><span class="src">Source: '+d.src+'</span>';
+    tip.style.display='block';
+  }
+  function move(e){tip.style.left=Math.min(e.clientX+14,innerWidth-360)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-170)+'px';}
+  document.querySelectorAll('.dot').forEach(function(el){
+    el.addEventListener('mouseenter',function(e){show(el.dataset);move(e);});
+    el.addEventListener('mousemove',move);
+    el.addEventListener('mouseleave',function(){tip.style.display='none';});
+    el.addEventListener('focus',function(){show(el.dataset);var r=el.getBoundingClientRect();tip.style.left=Math.min(r.left+14,innerWidth-360)+'px';tip.style.top=(r.bottom+10)+'px';});
+    el.addEventListener('blur',function(){tip.style.display='none';});
+  });
+})();
+</script>"""
     )
 
 
