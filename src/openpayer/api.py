@@ -3,10 +3,10 @@ from __future__ import annotations
 import html
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
 from . import auth as authmod
-from .benchmarks import data_inventory, rates_for_code, summary_by_code_payer
+from .benchmarks import data_inventory, rates_for_code, summary_all_payers, summary_by_code_payer
 from .config import load_codes
 from .store import DB_PATH
 
@@ -225,6 +225,13 @@ details summary{cursor:pointer;font-weight:600}
 .dot{cursor:pointer}.dot:hover{stroke:var(--ink);stroke-width:2.6}
 #tip{position:fixed;z-index:30;pointer-events:none;background:var(--ink);color:#fff;padding:.6rem .75rem;border-radius:8px;
 font-size:.86rem;line-height:1.5;max-width:350px;display:none;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+svg.strip{width:100%;height:auto;display:block}
+.tools{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;margin:1.2rem 0;padding:.8rem 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:10px}
+.tools input{padding:.4rem .6rem;border:1px solid var(--st-gray-300);border-radius:6px;font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{border:1px solid var(--st-gray-300);border-radius:999px;padding:.15rem .7rem;font-size:.85rem;text-decoration:none}
+.downloads{font-size:.85rem;color:var(--muted)}
+.payer-section{margin-top:2.4rem;border-top:2px solid var(--rule);padding-top:.6rem}
 #tip.pinned{pointer-events:auto}
 #tip strong{font-size:1.05rem}#tip .src{color:var(--st-gray-300);font-size:.74rem;word-break:break-all}
 #tip a{color:var(--st-green-100)}
@@ -331,7 +338,7 @@ If an item says waiting, the code is ready and only configuration or data is mis
 <h2>What it does not do yet</h2>
 <ul>
 <li><strong>Real payer files arrive dirty, and the system now copes.</strong> The first live payer file tested (Cox HealthPlans, Sep 2026) is invalid JSON (trailing commas), puts provider names inside the tax ID block, and uses bare numbers for NPIs and tax IDs. The parser repairs trailing commas with a string-aware scan and normalizes all three before storing anything. Dirt that cannot be repaired fails that one file and is logged, never silently blended in.</li>
-<li><strong>Sample depth today is one payer.</strong> The status and benchmark table at the top of this page always say exactly which codes, payers, and how many rates are live. Widen the code list to about 15 and add payer URLs to grow it; no code changes needed.</li>
+<li><strong>Depth is whatever the sources table shows.</strong> Every payer row carries files searched out of files in its index, so a bounded first pass reads as a bounded first pass, never as the payer's whole book. Widen the code list to about 15 and add payer index addresses to grow it; no code changes needed.</li>
 <li><strong>Provider details and geography:</strong> NPPES (NPI registry) wiring is stubbed in <code>reference.py</code>. Provider practice city, state, ZIP, and specialty, and any map view, wait on that loader. It is designed to join only providers already in the pulled rates, so it stays small.</li>
 <li><strong>Percent of Medicare:</strong> Medicare fee schedule wiring is stubbed the same way. No percent-of-Medicare figure is shown until real fee schedule data is loaded. The system shows nothing rather than a placeholder number.</li>
 <li><strong>Hospital files:</strong> only payer Transparency in Coverage in-network files are parsed today. Hospital MRFs use a different schema and are a later source type.</li>
@@ -417,35 +424,120 @@ def home(request: Request) -> str:
         return f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
 
     rows = summary_by_code_payer()
+    agg = summary_all_payers()
     inv = data_inventory()
-    detail_by_payer = {d["payer"]: d for d in __import__("openpayer.benchmarks", fromlist=["sources_detail"]).sources_detail()}
+    from .benchmarks import sources_detail
+
+    detail_by_payer = {d["payer"]: d for d in sources_detail()}
     cov_bits = []
     for p in inv["by_payer"]:
         d = detail_by_payer.get(p["payer"], {})
         cov_bits.append(f"{p['payer']}, index dated {d.get('index_last_updated_on') or 'not recorded'}, pulled {(d.get('pulled_at') or '')[:10] or 'date not recorded'}")
     coverage = "; ".join(cov_bits)
+    payers = [p["payer"] for p in inv["by_payer"]] or sorted({str(r["payer"]) for r in rows})
+    payer_phrase = payers[0] if len(payers) == 1 else f"{len(payers)} payers"
+
     headline = "What payers actually reimburse, for the codes you choose"
-    for r in rows:
-        if r["billing_code"] == "99213" and r["negotiated_type"] == "fee schedule":
-            others = [x for x in rows if x["billing_code"].startswith("994") and x["negotiated_type"] == "fee schedule"]
-            lo = min((x["median"] for x in others), default=0)
-            hi = max((x["median"] for x in others), default=0)
-            headline = f"At {r['payer']}, a 99213 office visit pays a median of ${r['median']:,.2f}, and the interprofessional consult codes pay medians of ${lo:,.2f} to ${hi:,.2f}"
-            break
-    trs = "".join(
-        "<tr><td><a href='/code/{code}'>{code}</a></td><td>{payer}</td><td>{rtype}</td><td class='n'>{n}</td><td class='n'>{groups}</td><td class='n'>${p25:,.2f}</td><td class='n'>${med:,.2f}</td><td class='n'>${p75:,.2f}</td></tr>".format(
-            code=html.escape(str(r["billing_code"])), payer=html.escape(str(r["payer"])), rtype=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
-            groups=r["n_provider_groups"], p25=r["p25"] or 0, med=r["median"] or 0, p75=r["p75"] or 0,
+    neg13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "negotiated"), None)
+    fs13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "fee schedule"), None)
+    lead_row = neg13 or fs13
+    if lead_row:
+        kind = "negotiated rate" if lead_row["negotiated_type"] == "negotiated" else "fee schedule rate"
+        headline = (
+            f"Across {payer_phrase}, a 99213 office visit pays a median {kind} of ${lead_row['median']:,.0f} "
+            f"(middle half ${lead_row['p25']:,.0f} to ${lead_row['p75']:,.0f}, n={lead_row['n_rates']})"
         )
-        for r in rows
+
+    all_rows_by_code: dict[str, list[dict]] = {}
+    all_vals: list[float] = []
+    for c in codes:
+        rs = [r for r in rates_for_code(c.code, limit=2000) if r.get("negotiated_rate") is not None]
+        all_rows_by_code[c.code] = rs
+        all_vals.extend(float(r["negotiated_rate"]) for r in rs)
+    xmax = max(25.0, (int(max(all_vals) / 25) + 1) * 25) if all_vals else 100.0
+
+    def _money(v) -> str:
+        return f"${(v or 0):,.2f}"
+
+    def _trs(subset, link_payer: str | None) -> str:
+        out = []
+        for r in subset:
+            q = f"?payer={html.escape(str(link_payer))}" if link_payer else ""
+            out.append(
+                "<tr data-code='{code}'><td><a href='/code/{code}{q}'>{code}</a></td><td>{rtype}</td><td class='n'>{n}</td><td class='n'>{groups}</td>"
+                "<td class='n'>{p25}</td><td class='n'>{med}</td><td class='n'>{p75}</td><td class='n'>{mn}</td><td class='n'>{mx}</td></tr>".format(
+                    code=html.escape(str(r["billing_code"])), q=q, rtype=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
+                    groups=r["n_provider_groups"], p25=_money(r["p25"]), med=_money(r["median"]), p75=_money(r["p75"]),
+                    mn=_money(r["min_rate"]), mx=_money(r["max_rate"]),
+                )
+            )
+        return "".join(out)
+
+    _TABLE_HEAD = (
+        "<div class='table-wrap'><table class='filterable'><thead><tr><th>Code</th><th>Rate type</th><th>Rates</th><th>Provider groups</th>"
+        "<th>p25</th><th>Median</th><th>p75</th><th>Min</th><th>Max</th></tr></thead><tbody>"
     )
-    g_row = "<tr><td>G2212</td><td>all pulled payers</td><td>any</td><td class='n'>0</td><td class='n'>0</td><td colspan='3'>Searched, found none. G2212 is a Medicare code and this commercial payer does not publish it. Its price lives in the Medicare fee schedule, not here.</td></tr>" if not any(r["billing_code"] == "G2212" for r in rows) else ""
-    bench = (
-        "<h2 id='rates'>See the numbers</h2>"
-        "<div class='table-wrap'><table><tr><th>Code</th><th>Payer</th><th>Rate type</th><th>Rates</th><th>Provider groups</th><th>p25</th><th>Median</th><th>p75</th></tr>"
-        + trs + g_row + "</table></div>"
-        "<p class='note'>p25 is the rate a quarter of provider groups are at or below. The median is the middle rate. p75 is where only a quarter are paid more. Select a code for every rate and the payer file behind it.</p>"
+    g_row = ""
+    if not any(r["billing_code"] == "G2212" for r in agg):
+        g_row = (
+            "<tr data-code='g2212'><td>G2212</td><td>any</td><td class='n'>0</td><td class='n'>0</td>"
+            "<td colspan='5'>Searched, found none. G2212 is a Medicare code and the commercial payers pulled so far do not publish it. Its price lives in the Medicare fee schedule, not here.</td></tr>"
+        )
+    chips = "".join(
+        f"<a class='chip' href='#payer-{html.escape(_slug_payer(p))}'>{html.escape(p)}</a>" for p in payers
     )
+    tools = (
+        "<div class='tools'><label>Filter tables by code <input id='codefilter' type='search' placeholder='try 99213' autocomplete='off'></label>"
+        f"<span class='chips'>{chips}</span>"
+        "<span class='downloads'>Download: <a href='/api/aggregate.csv'>aggregate CSV</a> · <a href='/api/summary.csv'>by-payer CSV</a> · "
+        "<a href='/api/aggregate'>aggregate JSON</a> · <a href='/api/summary'>by-payer JSON</a> · <a href='/api/sources'>sources JSON</a></span></div>"
+    )
+    market = (
+        "<h2 id='rates'>The market across payers</h2>"
+        "<p>All pulled payers together, per code and rate type. The payer count on every table row says how many payers that aggregate rests on. "
+        "Each payer also gets its own section below with the same scale, so a payer can be read alone and compared honestly.</p>"
+        + _strip_block(codes, all_rows_by_code, xmax)
+        + "<h3>See the numbers: all payers</h3>"
+        + ("<div class='table-wrap'><table class='filterable'><thead><tr><th>Code</th><th>Rate type</th><th>Payers</th><th>Rates</th><th>Provider groups</th>"
+           "<th>p25</th><th>Median</th><th>p75</th><th>Min</th><th>Max</th></tr></thead><tbody>")
+        + "".join(
+            "<tr data-code='{code}'><td><a href='/code/{code}'>{code}</a></td><td>{rtype}</td><td class='n'>{payers}</td><td class='n'>{n}</td><td class='n'>{groups}</td>"
+            "<td class='n'>{p25}</td><td class='n'>{med}</td><td class='n'>{p75}</td><td class='n'>{mn}</td><td class='n'>{mx}</td></tr>".format(
+                code=html.escape(str(r["billing_code"])), rtype=html.escape(str(r["negotiated_type"])),
+                payers=r["n_payers"], n=r["n_rates"], groups=r["n_provider_groups"],
+                p25=_money(r["p25"]), med=_money(r["median"]), p75=_money(r["p75"]), mn=_money(r["min_rate"]), mx=_money(r["max_rate"]),
+            )
+            for r in agg
+        )
+        + g_row
+        + "</tbody></table></div>"
+        "<p class='note'>Columns: Payers counts the payers inside the aggregate. Rates is n. p25 is the rate a quarter of provider groups are at or below. "
+        "The median is the middle rate. p75 is where only a quarter are paid more. Select a code for every rate and the payer file behind it.</p>"
+    )
+
+    sections = []
+    for payer in payers:
+        d = detail_by_payer.get(payer, {})
+        sub = [r for r in rows if str(r["payer"]) == payer]
+        sub_by_code = {c.code: [r for r in all_rows_by_code.get(c.code, []) if str(r["payer"]) == payer] for c in codes}
+        searched = (
+            f"{d.get('files_attempted')} of {d.get('files_in_index')} files in its index searched, {d.get('files_with_rows')} held rates for our codes"
+            if d.get("files_attempted") is not None else "not pulled yet"
+        )
+        line = (
+            f"Index dated {d.get('index_last_updated_on') or 'not recorded'}, pulled {(d.get('pulled_at') or '')[:10] or 'not yet'}: {searched}. "
+            f"{sum(r['n_rates'] for r in sub)} benchmark rates in the tables below."
+        )
+        sections.append(
+            f"<section class='payer-section' id='payer-{html.escape(_slug_payer(payer))}'>"
+            f"<h2>{html.escape(payer)}</h2><p class='coverage'>{html.escape(line)}</p>"
+            + _strip_block(codes, sub_by_code, xmax)
+            + f"<h3>See the numbers: {html.escape(payer)}</h3>"
+            + _TABLE_HEAD
+            + _trs(sub, link_payer=payer)
+            + "</tbody></table></div></section>"
+        )
+
     volume = (
         f"<details><summary>How much data is in here right now</summary><p class='note'>Live from the database on every load. "
         f"Total rate rows stored: {inv['total_rows']}, only the configured codes. Everything else in each payer file was discarded during the pull. "
@@ -465,10 +557,16 @@ def home(request: Request) -> str:
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
-        + _market_strip() + bench + _sources_section() + volume + how
+        + tools + market + "".join(sections) + _sources_section() + volume + how
         + "<p class='note'>Source: payer machine readable files published under CMS price transparency rules. Counts sit beside every benchmark so a thin sample is never dressed up as a market.</p>"
         "</div></body></html>"
     )
+
+
+def _slug_payer(payer: str) -> str:
+    import re as _re
+
+    return _re.sub(r"[^a-z0-9]+", "-", payer.lower()).strip("-")
 
 
 def _percentile(sorted_vals: list[float], q: float) -> float:
@@ -480,45 +578,74 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
     return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
 
 
-def _market_strip() -> str:
-    """Small multiples: every code on one shared dollar scale.
+_DOT_CAP = 240
 
-    One dot per observed dollar rate. Filled dot = negotiated, hollow dot = fee
-    schedule (shape, not color alone). Grey band = middle half (p25 to p75),
-    thick tick = median. Percentage rates are not dollars and are excluded,
-    which the caption states. A code with no rates gets an explicit empty row.
+
+def _merge_identical(groups: list[dict]) -> list[dict]:
+    """Merge code groups whose dollar values are exactly the same set.
+
+    Some payers publish the identical contracted amounts for a family of
+    codes. Drawing that one distribution six times repeats a single fact
+    and reads as fabricated, so the shared distribution is drawn once and
+    labeled with every code it covers. Median, band, and counts are those
+    of the shared set, and the label says each code carries this same set.
     """
-    codes = load_codes()
-    per_code: dict[str, list[dict]] = {}
-    all_vals: list[float] = []
-    for c in codes:
-        rows = [r for r in rates_for_code(c.code, limit=2000) if r.get("negotiated_rate") is not None]
-        per_code[c.code] = rows
-        all_vals.extend(float(r["negotiated_rate"]) for r in rows)
-    if not codes:
-        return ""
-    xmax = max(all_vals) if all_vals else 100.0
-    xmax = max(25.0, (int(xmax / 25) + 1) * 25)
-    # Split by rate type: rates are never pooled across types (Tufte rule and
-    # the benchmark contract). Each code gets one sub-row per dollar type.
-    grouped: dict[str, list[tuple[str, list[dict]]]] = {}
-    n_subrows = 0
-    for c in codes:
-        by_type: dict[str, list[dict]] = {}
-        for r in per_code[c.code]:
-            by_type.setdefault(str(r["negotiated_type"]), []).append(r)
-        groups = sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
-        grouped[c.code] = groups
-        n_subrows += max(1, len(groups))
-    width, label_w, plot_w = 940, 110, 700
+    order: list[str] = []
+    by_key: dict[tuple, dict] = {}
+    for g in groups:
+        vals = tuple(sorted(float(r["negotiated_rate"]) for r in g["rows"]))
+        key = (g["rtype"], vals)
+        if key in by_key:
+            by_key[key]["codes"].append(g["code"])
+        else:
+            merged = dict(g)
+            merged["codes"] = [g["code"]]
+            by_key[key] = merged
+            order.append(key)
+    return [by_key[k] for k in order]
+
+
+def _sample(rows: list[dict], cap: int = _DOT_CAP) -> tuple[list[dict], bool]:
+    """Evenly spaced sample of at most `cap` rows after sorting by rate.
+
+    Returns (sample, was_capped). Every rate still sits in the tables and
+    on the code pages; only the drawn dots are thinned, and the row says so.
+    """
+    ordered = sorted(rows, key=lambda z: float(z["negotiated_rate"]))
+    if len(ordered) <= cap:
+        return ordered, False
+    step = (len(ordered) - 1) / (cap - 1)
+    return [ordered[round(i * step)] for i in range(cap)], True
+
+
+def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict[str, str]) -> tuple[str, list[str]]:
+    """Draw one strip: one row per distinct distribution, shared zero scale.
+
+    code_groups maps code -> rate-type groups ({rtype, rows}). Groups with
+    identical dollar sets share a row labeled with all their codes (see
+    _merge_identical). Returns (svg, sampling notes).
+    """
+    flat: list[dict] = []
+    empties: list[str] = []
+    for code, groups in code_groups.items():
+        if not groups:
+            empties.append(code)
+        for g in groups:
+            flat.append({"code": code, **g})
+    merged = _merge_identical(flat)
+    notes: list[str] = []
+    width, label_w, plot_w, right_w = 980, 120, 640, 208
     sub_h = 40
-    height = 34 + sub_h * n_subrows + 10
+    n_rows = len(merged) + len(empties)
+    height = 34 + sub_h * max(1, n_rows) + 10
     x0 = label_w
+
     def X(v: float) -> float:
         return x0 + (v / xmax) * plot_w
+
     parts = [
-        f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Market strip: for each billing code and rate type, one dot per observed dollar rate on a shared dollar scale starting at zero, with the middle half and median marked per type">'
+        f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
+        'aria-label="Rate strip: one row per distinct pay pattern per rate type, one dot per observed dollar rate on a shared dollar scale starting at zero, middle half and median marked">'
     ]
     tick = 0
     while tick <= xmax:
@@ -526,61 +653,86 @@ def _market_strip() -> str:
         parts.append(f'<text x="{X(tick):.0f}" y="14" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
         tick += 25
     y_cursor = 30
-    for c in codes:
-        groups = grouped[c.code]
-        if not groups:
-            mid = y_cursor + 18
-            parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-            parts.append(f'<text x="0" y="{mid + 13}" font-size="10" fill="#374151">{html.escape(c.code_system)}</text>')
-            parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
-            parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
-            y_cursor += sub_h
-            continue
-        for gi, (rtype, rows) in enumerate(groups):
-            mid = y_cursor + 18
-            if gi == 0:
-                parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-            parts.append(f'<text x="34" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(rtype)}</text>')
-            vals = sorted(float(r["negotiated_rate"]) for r in rows)
-            p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
-            if len(vals) > 1:
-                parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#CCFBF1"/>')
-            for j, r in enumerate(sorted(rows, key=lambda z: float(z["negotiated_rate"]))):
-                v = float(r["negotiated_rate"])
-                y = mid - 5 + (j % 3) * 5
-                who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
-                title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
-                attrs = (
-                    f'class="dot" tabindex="0" data-code="{html.escape(c.code)}" data-rate="${v:,.2f}" '
-                    f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
-                    f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
-                    f'data-src="{html.escape(str(r["source_url"]))}" '
-                    f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
-                )
-                if rtype == "negotiated":
-                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#111827"><title>{title}</title></circle>')
-                else:
-                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.4"><title>{title}</title></circle>')
-            parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#111827" stroke-width="3"/>')
-            if len(vals) == 1:
-                parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
+    for g in merged:
+        mid = y_cursor + 18
+        vals = sorted(float(r["negotiated_rate"]) for r in g["rows"])
+        p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
+        label = " · ".join(g["codes"])
+        parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(label)}</text>')
+        parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(str(g["rtype"]))}</text>')
+        if len(g["codes"]) > 1:
+            parts.append(f'<text x="{x0 + 2}" y="{mid - 13}" font-size="9.5" fill="#6B7280">same published amounts for each of these codes</text>')
+        if len(vals) > 1:
+            parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#CCFBF1"/>')
+        drawn, capped = _sample(g["rows"])
+        if capped:
+            notes.append(f"{label} ({g['rtype']}): {len(drawn)} of {len(vals)} dots drawn, evenly spaced. Every rate is in the tables.")
+        for j, r in enumerate(drawn):
+            v = float(r["negotiated_rate"])
+            y = mid - 5 + (j % 3) * 5
+            who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
+            title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
+            attrs = (
+                f'class="dot" tabindex="0" data-code="{html.escape(label)}" data-rate="${v:,.2f}" '
+                f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
+                f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
+                f'data-src="{html.escape(str(r["source_url"]))}" '
+                f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
+            )
+            if g["rtype"] == "negotiated":
+                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#111827" fill-opacity="0.88"><title>{title}</title></circle>')
             else:
-                parts.append(
-                    f'<text x="{x0 + plot_w + 12}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
-                    f'<text x="{x0 + plot_w + 12}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f} | n={len(vals)}</text>'
-                )
-            y_cursor += sub_h
+                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{title}</title></circle>')
+        parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#111827" stroke-width="3"/>')
+        rx = x0 + plot_w + 12
+        if len(vals) == 1:
+            parts.append(f'<text x="{rx}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
+        else:
+            per = f" | n={len(vals)} each" if len(g["codes"]) > 1 else f" | n={len(vals)}"
+            parts.append(
+                f'<text x="{rx}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
+                f'<text x="{rx}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f}{per}</text>'
+            )
+        y_cursor += sub_h
+    for code in empties:
+        mid = y_cursor + 18
+        parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(code)}</text>')
+        parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(codes_meta.get(code, ""))}</text>')
+        parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
+        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
+        y_cursor += sub_h
     parts.append("</svg>")
+    return "".join(parts), notes
+
+
+_STRIP_CAPTION = (
+    "One row per distinct pay pattern and rate type, on one dollar scale that starts at zero for every row. "
+    "Rate types are never pooled: a negotiated median and a fee schedule median are different facts. "
+    "Where a payer publishes the identical amounts for several codes, those codes share one row instead of repeating the same picture. "
+    "Each dot is one real dollar rate from a payer file. The teal band is the middle half of rates (p25 to p75). The thick tick is the median. "
+    "Percentiles use linear interpolation between closest ranks. Observed dots are never interpolated. "
+    "Filled dots are negotiated rates. Hollow dots are fee schedule rates. Percentage rates are not dollars and are left out. "
+    "Hover any dot for payer, rate type, amount, and provider. Click or tap to pin its panel and open the source link. Tab works the same, Enter pins, Escape closes."
+)
+
+
+def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float) -> str:
+    """Full strip markup (caption + svg + notes + detail panel + script)."""
+    code_groups: dict[str, list[dict]] = {}
+    for c in codes:
+        by_type: dict[str, list[dict]] = {}
+        for r in rows_by_code.get(c.code, []):
+            by_type.setdefault(str(r["negotiated_type"]), []).append(r)
+        code_groups[c.code] = [
+            {"rtype": t, "rows": rs}
+            for t, rs in sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
+        ]
+    svg, notes = _strip_svg(code_groups, xmax, {c.code: c.code_system for c in codes})
+    note_html = "".join(f"<p class='note'>{html.escape(n)}</p>" for n in notes)
     return (
-        "<h2>The market at a glance</h2>"
-        "<p>Each code gets one row per rate type. Types are never pooled: a negotiated median and a fee schedule median are different facts. Each dot is one real dollar rate from a payer file, on the same dollar scale starting at zero for every row, so codes and types compare honestly. "
-        "The grey band is the middle half of rates (p25 to p75) for that code and type. The thick tick is its median. Percentiles use linear interpolation between closest ranks. Observed dots are never interpolated. "
-        "Filled dots are negotiated rates. Hollow dots are fee schedule rates. Hover any dot for payer, rate type, amount, and provider. "
-        "Percentage rates are not dollars and are left out. Exact values for every dot are in the benchmark table above and on each code page.</p>"
-        + "".join(parts)
-        + "<p class='note'>Source: Cox HealthPlans machine-readable files, index dated September 16, 2026, pulled live by this system. "
-        "Counts (n) are printed on every row. A row with n=0 means no dollar rate for that code appeared in the files pulled so far, not a rate of zero. "
-        "Hover any dot for a quick look. Click or tap a dot to pin its panel and open the source link. Tab works the same, Enter pins, Escape closes.</p>"
+        f"<p>{_STRIP_CAPTION}</p>"
+        + svg
+        + note_html
         + '<div id="tip" role="status"></div>'
         + """<script>
 (function(){
@@ -609,16 +761,41 @@ def _market_strip() -> str:
     el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();pinned?unpin():pin(el.dataset,el);}});
   });
   document.addEventListener('keydown',function(e){if(e.key==='Escape')unpin();});
+  var f=document.getElementById('codefilter');
+  if(f){f.addEventListener('input',function(){
+    var q=f.value.trim().toLowerCase();
+    document.querySelectorAll('table.filterable tbody tr').forEach(function(tr){
+      tr.style.display=(!q||(tr.dataset.code||'').indexOf(q)>-1)?'':'none';
+    });
+  });}
 })();
 </script>"""
     )
 
 
 @app.get("/code/{code}", response_class=HTMLResponse)
-def code_page(code: str) -> str:
+def code_page(code: str, payer: str | None = None) -> str:
     if not _has_data():
         return f"<html><body style='font-family:system-ui'><h1>{html.escape(code)}</h1><p>No data pulled yet.</p></body></html>"
-    rows = rates_for_code(code, limit=500)
+    bench = [r for r in summary_by_code_payer() if str(r["billing_code"]) == code]
+    payer_links = "".join(
+        f"<a class='chip' href='/code/{html.escape(code)}?payer={html.escape(str(p))}'>{html.escape(str(p))}</a>"
+        for p in sorted({str(r["payer"]) for r in bench})
+    )
+    breakdown = ""
+    if bench:
+        breakdown = (
+            "<h2>Median by payer</h2><div class='table-wrap'><table><tr><th>Payer</th><th>Rate type</th><th>Rates</th><th>p25</th><th>Median</th><th>p75</th></tr>"
+            + "".join(
+                "<tr><td>{p}</td><td>{t}</td><td class='n'>{n}</td><td class='n'>${a:,.2f}</td><td class='n'>${m:,.2f}</td><td class='n'>${b:,.2f}</td></tr>".format(
+                    p=html.escape(str(r["payer"])), t=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
+                    a=r["p25"] or 0, m=r["median"] or 0, b=r["p75"] or 0,
+                )
+                for r in bench
+            )
+            + "</table></div>"
+        )
+    rows = rates_for_code(code, payer=payer, limit=500)
     plot = _dot_plot(rows)
     trs = "".join(
         "<tr><td>{p}</td><td>${v:,.2f}</td><td>{t}</td><td>{prov}</td><td>{tin}</td><td><a href='{src}'>source file</a></td></tr>".format(
@@ -628,11 +805,19 @@ def code_page(code: str) -> str:
         for r in rows[:200]
     )
     table = "<table><tr><th>Payer</th><th>Rate</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>" + trs + "</table>"
+    if payer:
+        scope = f"<p class='coverage'>Showing {html.escape(payer)} only. <a href='/code/{html.escape(code)}'>Show all payers</a></p>"
+        shown = payer
+    else:
+        scope = f"<p class='coverage'>Filter by payer: <span class='chips'>{payer_links}</span></p>" if payer_links else ""
+        shown = "all payers"
+    csv_link = f"/api/rates/{html.escape(code)}.csv" + (f"?payer={html.escape(payer)}" if payer else "")
     return (
-        f"<html><head><title>{html.escape(code)} rates</title>{og_head()}<style>{STYLE}</style></head><body>"
-        f"<p><a href='/'>All codes</a></p><h1>Code {html.escape(code)}</h1>{plot}"
-        f"<h2>See the numbers</h2>{table}"
-        "<p class='note'>Each dot is one observed negotiated rate for one provider group. Dashed line is the median. Rates link to the payer file they came from.</p></body></html>"
+        f"<html><head><title>{html.escape(code)} rates</title>{og_head()}<style>{STYLE}</style></head><body><div class='wrap'>"
+        f"<p><a href='/'>All codes</a></p><h1>Code {html.escape(code)}</h1>{scope}{breakdown}{plot}"
+        f"<h2>See the numbers ({shown})</h2>{table}"
+        f"<p class='note'>Each dot is one observed dollar rate for one provider group ({shown}). Dashed line is the median. Rates link to the payer file they came from. "
+        f"Download: <a href='{csv_link}'>these rates as CSV</a> · <a href='/api/rates/{html.escape(code)}'>JSON</a>. First 200 rows shown; the CSV and JSON carry up to 500.</p></div></body></html>"
     )
 
 
@@ -653,6 +838,61 @@ def api_summary():
     if not _has_data():
         return JSONResponse({"detail": "no data yet"}, status_code=404)
     return summary_by_code_payer()
+
+
+@app.get("/api/aggregate")
+def api_aggregate():
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    return summary_all_payers()
+
+
+def _csv_response(rows: list[dict], cols: list[str], filename: str) -> PlainTextResponse:
+    import csv as _csv
+    import io
+
+    buf = io.StringIO()
+    w = _csv.DictWriter(buf, fieldnames=cols, extrasaction="ignore")
+    w.writeheader()
+    for r in rows:
+        w.writerow(r)
+    return PlainTextResponse(
+        buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/summary.csv")
+def api_summary_csv():
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    return _csv_response(
+        summary_by_code_payer(),
+        ["billing_code", "billing_code_type", "payer", "negotiated_type", "n_rates", "n_provider_groups", "min_rate", "p25", "median", "p75", "max_rate"],
+        "openpayer-benchmarks-by-payer.csv",
+    )
+
+
+@app.get("/api/aggregate.csv")
+def api_aggregate_csv():
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    return _csv_response(
+        summary_all_payers(),
+        ["billing_code", "billing_code_type", "negotiated_type", "n_rates", "n_payers", "n_provider_groups", "min_rate", "p25", "median", "p75", "max_rate"],
+        "openpayer-benchmarks-all-payers.csv",
+    )
+
+
+@app.get("/api/rates/{code}.csv")
+def api_rates_csv(code: str, payer: str | None = None):
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    return _csv_response(
+        rates_for_code(code, payer=payer),
+        ["payer", "negotiated_rate", "negotiated_type", "billing_class", "provider_name", "tin", "npi", "source_url"],
+        f"openpayer-rates-{code}.csv",
+    )
 
 
 @app.get("/api/rates/{code}")

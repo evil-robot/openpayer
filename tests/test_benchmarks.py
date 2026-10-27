@@ -1,6 +1,6 @@
 import duckdb
 
-from openpayer.benchmarks import rates_for_code, summary_by_code_payer
+from openpayer.benchmarks import rates_for_code, summary_all_payers, summary_by_code_payer
 from openpayer.store import SCHEMA
 
 
@@ -31,3 +31,23 @@ def test_summary_excludes_non_dollar_rates(tmp_path):
 def test_rates_for_code(tmp_path):
     rows = rates_for_code("99213", _db(tmp_path))
     assert [r["negotiated_rate"] for r in rows] == [80.0, 100.0, 120.0]
+
+
+def test_summary_all_payers_counts_payers_and_keeps_types_separate(tmp_path):
+    db = tmp_path / "rates.duckdb"
+    con = duckdb.connect(str(db))
+    con.execute(SCHEMA)
+    rows = [
+        ("PayerA", "99213", "CPT", "negotiated", 80.0, "professional", "", "", "", "Clinic A", "ein", "11-1111111", "1111111111", "https://example.com/a.json.gz", "a.jsonl.gz"),
+        ("PayerB", "99213", "CPT", "negotiated", 200.0, "professional", "", "", "", "Clinic B", "ein", "22-2222222", "2222222222", "https://example.com/b.json.gz", "b.jsonl.gz"),
+        ("PayerB", "99213", "CPT", "fee schedule", 50.0, "professional", "", "", "", "Clinic B", "ein", "22-2222222", "2222222222", "https://example.com/b.json.gz", "b.jsonl.gz"),
+        ("PayerB", "99213", "CPT", "percentage", 150.0, "professional", "", "", "", "Clinic B", "ein", "22-2222222", "2222222222", "https://example.com/b.json.gz", "b.jsonl.gz"),
+    ]
+    con.executemany("INSERT INTO rates VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    con.close()
+    out = summary_all_payers(db)
+    assert len(out) == 2  # percentage excluded, types never pooled
+    neg = next(r for r in out if r["negotiated_type"] == "negotiated")
+    assert neg["n_rates"] == 2
+    assert neg["n_payers"] == 2
+    assert neg["median"] == 140.0

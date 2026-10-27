@@ -36,6 +36,33 @@ def summary_by_code_payer(db_path: Path = DB_PATH) -> list[dict]:
     return [dict(zip(cols, r)) for r in rows]
 
 
+def summary_all_payers(db_path: Path = DB_PATH) -> list[dict]:
+    from . import pg_store
+
+    if pg_store.enabled():
+        return pg_store.summary_all_payers()
+    con = connect(db_path)
+    rows = con.execute(
+        """
+        SELECT billing_code, billing_code_type, negotiated_type,
+               count(*) AS n_rates,
+               count(DISTINCT payer) AS n_payers,
+               count(DISTINCT CASE WHEN tin <> '' THEN tin END) AS n_provider_groups,
+               min(negotiated_rate) AS min_rate,
+               quantile_cont(negotiated_rate, 0.25) AS p25,
+               quantile_cont(negotiated_rate, 0.50) AS median,
+               quantile_cont(negotiated_rate, 0.75) AS p75,
+               max(negotiated_rate) AS max_rate
+        FROM rates
+        WHERE negotiated_type <> 'percentage' AND negotiated_rate IS NOT NULL
+        GROUP BY ALL ORDER BY billing_code, negotiated_type
+        """
+    ).fetchall()
+    cols = [d[0] for d in con.description]
+    con.close()
+    return [dict(zip(cols, r)) for r in rows]
+
+
 def _fmt_bytes(n: int) -> str:
     f = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):

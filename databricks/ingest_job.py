@@ -40,10 +40,18 @@ os.environ["LAKEBASE_DSN"] = f"host={dns} port=5432 dbname=openpayer user={user}
 
 print(f"argv: {sys.argv}")
 limit_raw = os.environ.get("OPENPAYER_LIMIT", "")
+only_arg = os.environ.get("OPENPAYER_ONLY", "")
+workers_arg = os.environ.get("OPENPAYER_WORKERS", "")
 for _a in sys.argv[1:]:
     if _a.isdigit():
         limit_raw = _a
-limit = int(limit_raw) if limit_raw else None
+    elif _a.startswith("--limit="):
+        limit_raw = _a.split("=", 1)[1]
+    elif _a.startswith("--only="):
+        only_arg = _a.split("=", 1)[1]
+    elif _a.startswith("--workers="):
+        workers_arg = _a.split("=", 1)[1]
+limit = int(limit_raw) if str(limit_raw).strip().isdigit() else None
 
 codes = load_codes()
 allowed = code_set(codes)
@@ -57,10 +65,9 @@ from datetime import datetime as _dt, timezone as _tz
 
 from openpayer.pg_store import upsert_source_status
 
-only_raw = os.environ.get("OPENPAYER_ONLY", "")
-only = {p.strip().lower() for p in only_raw.split(",") if p.strip()}
+only = {p.strip().lower() for p in only_arg.split(",") if p.strip()}
 try:
-    n_workers = max(1, int(os.environ.get("OPENPAYER_WORKERS", "3")))
+    n_workers = max(1, int(workers_arg or "3"))
 except ValueError:
     n_workers = 3
 print(f"config: limit={limit} workers={n_workers} only={sorted(only) or 'all'}")

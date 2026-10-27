@@ -82,6 +82,34 @@ def summary_by_code_payer() -> list[dict]:
     return rows
 
 
+def summary_all_payers() -> list[dict]:
+    """Aggregate per code and rate type across every payer.
+
+    Types are still never pooled: negotiated and fee schedule stay
+    separate rows. The payer count rides on every row so a one-payer
+    aggregate is never dressed up as a market.
+    """
+    with _connect() as con:
+        rows = con.execute(
+            """
+            SELECT billing_code, billing_code_type, negotiated_type,
+                   count(*) AS n_rates,
+                   count(DISTINCT payer) AS n_payers,
+                   count(DISTINCT NULLIF(tin, '')) AS n_provider_groups,
+                   min(negotiated_rate) AS min_rate,
+                   percentile_cont(0.25) WITHIN GROUP (ORDER BY negotiated_rate) AS p25,
+                   percentile_cont(0.50) WITHIN GROUP (ORDER BY negotiated_rate) AS median,
+                   percentile_cont(0.75) WITHIN GROUP (ORDER BY negotiated_rate) AS p75,
+                   max(negotiated_rate) AS max_rate
+            FROM rates
+            WHERE negotiated_type <> 'percentage' AND negotiated_rate IS NOT NULL
+            GROUP BY billing_code, billing_code_type, negotiated_type
+            ORDER BY billing_code, negotiated_type
+            """
+        ).fetchall()
+    return rows
+
+
 def rates_for_code(code: str, payer: str | None = None, limit: int = 500) -> list[dict]:
     sql = (
         "SELECT payer, negotiated_rate, negotiated_type, billing_class, provider_name, tin, npi, source_url "
