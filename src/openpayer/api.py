@@ -17,7 +17,11 @@ PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify"}
 
 @app.middleware("http")
 async def _auth_gate(request: Request, call_next):
-    if not authmod.auth_enabled() or request.url.path in PUBLIC_PATHS:
+    if (
+        not authmod.auth_enabled()
+        or request.url.path in PUBLIC_PATHS
+        or request.url.path.startswith("/.well-known/")
+    ):
         return await call_next(request)
     if authmod.session_email(request.cookies.get(authmod.COOKIE)):
         return await call_next(request)
