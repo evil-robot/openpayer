@@ -38,9 +38,11 @@ dns = instance.get("read_write_dns") if isinstance(instance, dict) else instance
 user = me.get("userName") if isinstance(me, dict) else me.user_name
 os.environ["LAKEBASE_DSN"] = f"host={dns} port=5432 dbname=openpayer user={user} password={token} sslmode=require"
 
+print(f"argv: {sys.argv}")
 limit_raw = os.environ.get("OPENPAYER_LIMIT", "")
-if len(sys.argv) > 1 and sys.argv[1].isdigit():
-    limit_raw = sys.argv[1]
+for _a in sys.argv[1:]:
+    if _a.isdigit():
+        limit_raw = _a
 limit = int(limit_raw) if limit_raw else None
 
 codes = load_codes()
@@ -49,12 +51,24 @@ assert allowed, "empty allowlist: refusing to pull"
 
 ensure_schema()
 total = 0
+import re as _re
+from datetime import datetime as _dt, timezone as _tz
+
+from openpayer.pg_store import upsert_source_status
+
 for src in load_sources():
     urls = list(src.direct_mrf_urls)
+    toc_date = ""
+    files_in_index = len(urls)
     if src.toc_url:
-        urls.extend(f["location"] for f in iter_toc_files(load_toc(src.toc_url)))
+        _toc = load_toc(src.toc_url)
+        toc_date = str(_toc.get("last_updated_on", ""))
+        _all = [f["location"] for f in iter_toc_files(_toc)]
+        files_in_index = len(_all)
+        urls.extend(_all)
     if limit:
         urls = urls[:limit]
+    stats = {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0}
     for i, url in enumerate(urls):
         tmp = None
         try:
@@ -65,19 +79,37 @@ for src in load_sources():
                 local = str(tmp)
             else:
                 local = url
+            stats["files_attempted"] += 1
             rows = list(parse_mrf(local, allowed, payer=src.payer, source_url=url))
             if rows:
                 import psycopg
 
                 from openpayer import pg_store
 
-                fname = f"{src.payer}-{i:04d}.jsonl.gz"
+                slug = _re.sub(r"[^a-z0-9]+", "-", src.payer.lower()).strip("-")
+                fname = f"{slug}-{i:04d}.jsonl.gz"
                 with psycopg.connect(pg_store.dsn()) as con:
                     con.execute("DELETE FROM rates WHERE loaded_file = %s", [fname])
                 total += insert_rows(rows, fname)
+                stats["files_with_rows"] += 1
+                stats["rows_kept"] += len(rows)
         except Exception as exc:
+            stats["failures"] += 1
             print(f"FAILED {url}: {exc}")
         finally:
             if tmp is not None:
                 Path(tmp).unlink(missing_ok=True)
+    upsert_source_status(
+        [
+            {
+                "payer": src.payer,
+                "source_type": src.source_type,
+                "index_url": src.toc_url,
+                "index_last_updated_on": toc_date,
+                "files_in_index": files_in_index,
+                "pulled_at": _dt.now(_tz.utc).isoformat(timespec="seconds"),
+                **stats,
+            }
+        ]
+    )
 print(f"OpenPayer ingest complete. Inserted {total} rows for codes {sorted(allowed)}.")
