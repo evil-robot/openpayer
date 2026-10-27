@@ -26,14 +26,17 @@ import tempfile  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 # Lakebase credential for this workspace identity (expires in about an hour;
-# the job mints a fresh one each run).
+# the job mints a fresh one each run). Raw REST via the SDK api client: the
+# preinstalled SDK on serverless can predate the database namespace.
 w = WorkspaceClient()
-cred = w.database.generate_database_credential(request_id="openpayer-ingest", instance_names=["ar-fleet"])
-instance = w.database.get_database_instance(name="ar-fleet")
-user = w.current_user.me().user_name
-os.environ["LAKEBASE_DSN"] = (
-    f"host={instance.read_write_dns} port=5432 dbname=openpayer user={user} password={cred.token} sslmode=require"
-)
+api = w.api_client
+cred = api.do("POST", "/api/2.0/database/credentials", body={"request_id": "openpayer-ingest", "instance_names": ["ar-fleet"]})
+instance = api.do("GET", "/api/2.0/database/instances/ar-fleet")
+me = api.do("GET", "/api/2.0/preview/scim/v2/Me")
+token = cred.get("token") if isinstance(cred, dict) else cred.token
+dns = instance.get("read_write_dns") if isinstance(instance, dict) else instance.read_write_dns
+user = me.get("userName") if isinstance(me, dict) else me.user_name
+os.environ["LAKEBASE_DSN"] = f"host={dns} port=5432 dbname=openpayer user={user} password={token} sslmode=require"
 
 limit_raw = os.environ.get("OPENPAYER_LIMIT", "")
 if len(sys.argv) > 1 and sys.argv[1].isdigit():
