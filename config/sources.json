@@ -1,0 +1,11 @@
+{
+  "_howto": "One entry per payer. toc_url points at the payer Transparency in Coverage table-of-contents (index) JSON, which links every in-network MRF. direct_mrf_urls skips discovery for a known file. Leave toc_url empty to skip that payer. Hospital MRFs (source_type=hospital) can be added later with the same shape.",
+  "sources": [
+    { "payer": "Cox HealthPlans", "source_type": "tic", "toc_url": "https://www.coxhealthplans.com/MRF/2026-09-16_Cox%20Health%20Systems%20Insurance%20Company-CHSICE_index.json", "direct_mrf_urls": [] },
+    { "payer": "UnitedHealthcare", "source_type": "tic", "toc_url": "", "direct_mrf_urls": [] },
+    { "payer": "Aetna", "source_type": "tic", "toc_url": "", "direct_mrf_urls": [] },
+    { "payer": "Cigna", "source_type": "tic", "toc_url": "", "direct_mrf_urls": [] },
+    { "payer": "Elevance Anthem BCBS", "source_type": "tic", "toc_url": "", "direct_mrf_urls": [] },
+    { "payer": "Humana", "source_type": "tic", "toc_url": "", "direct_mrf_urls": [] }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "_howto": "Add up to ~15 billing codes to pull. Nothing is downloaded while this list is empty. code_system: CPT, HCPCS, MS-DRG, REV, or NDC. Descriptions are optional and must not be AMA CPT long descriptions unless licensed; short user notes are fine.",
+  "_example": { "code": "99213", "code_system": "CPT", "note": "office visit, established patient" },
+  "codes": [
+    { "code": "99213", "code_system": "CPT", "note": "Sample code: office visit, established patient" },
+    { "code": "99446", "code_system": "CPT", "note": "Interprofessional consult, short" },
+    { "code": "99447", "code_system": "CPT", "note": "Interprofessional consult" },
+    { "code": "99448", "code_system": "CPT", "note": "Interprofessional consult" },
+    { "code": "99449", "code_system": "CPT", "note": "Interprofessional consult, longest" },
+    { "code": "99451", "code_system": "CPT", "note": "Interprofessional electronic consult" },
+    { "code": "99452", "code_system": "CPT", "note": "Interprofessional electronic consult, requesting side" },
+    { "code": "G2212", "code_system": "HCPCS", "note": "Medicare prolonged office visit add-on" }
+  ]
+}

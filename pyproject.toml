@@ -1,0 +1,33 @@
+[project]
+name = "openpayer"
+version = "0.1.0"
+description = "Open source payer rate search and benchmarks from CMS price transparency files, filtered to a small code allowlist"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "ijson>=3.3",
+  "duckdb>=1.1",
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+openpayer-pull = "openpayer.ingest.run:main"
+openpayer-load = "openpayer.store:main"
+openpayer-serve = "openpayer.api:serve"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openpayer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

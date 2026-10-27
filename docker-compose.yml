@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    environment:
+      - HOST=0.0.0.0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
