@@ -163,6 +163,16 @@ docker compose up --build
 
 Then open http://127.0.0.1:8000.
 
+## Gated hosting (openpayer.medtruth.care)
+
+Set `OPENPAYER_AUTH_SECRET` and the gate turns on: only
+@medtruth.care addresses (plus `OPENPAYER_ADMIN_EMAILS`) can sign in,
+by emailed magic link with a scanner-proof confirm page and a 90-day
+session, the same pattern as the MedTruth site. Variable names are in
+`.env.example`. The full deploy handoff, written for the session that
+deploys MedTruth services, is in `DEPLOY.md`. With no secret set the
+app runs open, for local use.
+
 ## License
 
 Apache-2.0. Data remains the public data of its publishers (CMS, payers,

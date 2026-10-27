@@ -2,14 +2,109 @@ from __future__ import annotations
 
 import html
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from . import auth as authmod
 from .benchmarks import data_inventory, rates_for_code, summary_by_code_payer
 from .config import load_codes
 from .store import DB_PATH
 
 app = FastAPI(title="OpenPayer", description="Rate search and benchmarks from CMS price transparency files")
+
+PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify"}
+
+
+@app.middleware("http")
+async def _auth_gate(request: Request, call_next):
+    if not authmod.auth_enabled() or request.url.path in PUBLIC_PATHS:
+        return await call_next(request)
+    if authmod.session_email(request.cookies.get(authmod.COOKIE)):
+        return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"detail": "sign in required"}, status_code=401)
+    return RedirectResponse("/sign-in", status_code=303)
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+def _bare(title: str, body: str) -> HTMLResponse:
+    return HTMLResponse(
+        f"<html><head><title>{html.escape(title)}</title><style>{STYLE}</style></head>"
+        f"<body><h1>OpenPayer</h1>{body}</body></html>"
+    )
+
+
+@app.get("/sign-in", response_class=HTMLResponse)
+def sign_in_page():
+    domains = ", ".join(sorted(authmod.allowed_domains()))
+    return _bare(
+        "Sign in",
+        "<p>OpenPayer at this address is for the MedTruth team. "
+        f"Sign-in is by email link for @{domains} addresses.</p>"
+        '<form method="post" action="/sign-in"><label>Email <input type="email" name="email" required size="34"></label> '
+        '<button type="submit">Email me a sign-in link</button></form>',
+    )
+
+
+_attempts: dict[str, list[float]] = {}
+
+
+@app.post("/sign-in", response_class=HTMLResponse)
+def sign_in_submit(request: Request, email: str = Form(...)):
+    import time as _time
+
+    ip = request.client.host if request.client else "unknown"
+    now = _time.time()
+    hits = [t for t in _attempts.get(ip, []) if now - t < 900]
+    if len(hits) < 6:
+        hits.append(now)
+        _attempts[ip] = hits
+        if authmod.is_allowed(email):
+            token = authmod.create_token(email)
+            authmod.send_sign_in_link(email, token)
+    # Same answer for every address, allowed or not.
+    return _bare("Check your email", "<p>If that address may sign in, a link is on its way. It expires in 7 days.</p>")
+
+
+@app.get("/confirm", response_class=HTMLResponse)
+def confirm_page(token: str = ""):
+    # Scanner-proof relay: no link or form action points at the verify URL.
+    # The button builds it in the browser on a real click.
+    safe = html.escape(token)
+    return _bare(
+        "Confirm sign-in",
+        "<p>Press the button to finish signing in.</p>"
+        f'<button id="go" data-token="{safe}">Sign in to OpenPayer</button>'
+        "<script>document.getElementById('go').addEventListener('click',function(){"
+        "setTimeout(function(){location.href='/auth/verify?token='+encodeURIComponent("
+        "document.getElementById('go').dataset.token);},350);});</script>",
+    )
+
+
+@app.get("/auth/verify")
+def auth_verify(token: str = ""):
+    email = authmod.verify_token(token)
+    if not email:
+        return _bare("Link expired", "<p>That link is spent or expired. <a href='/sign-in'>Request a new one</a>.</p>")
+    resp = RedirectResponse("/", status_code=303)
+    raw = authmod.create_session(email)
+    resp.set_cookie(
+        authmod.COOKIE, raw, max_age=authmod.SESSION_TTL, httponly=True,
+        samesite="lax", secure=authmod.base_url().startswith("https://"),
+    )
+    return resp
+
+
+@app.post("/sign-out")
+def sign_out(request: Request):
+    authmod.delete_session(request.cookies.get(authmod.COOKIE))
+    resp = RedirectResponse("/sign-in", status_code=303)
+    resp.delete_cookie(authmod.COOKIE)
+    return resp
 
 STYLE = """
 body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:980px;padding:0 1rem;color:#13151E;background:#F0EEEB}
@@ -320,4 +415,6 @@ def serve() -> None:
 
     import uvicorn
 
+    if authmod.auth_enabled() and not (os.environ.get("RESEND_API_KEY") and os.environ.get("MAIL_FROM")):
+        print("WARNING: auth is on but RESEND_API_KEY/MAIL_FROM are unset. Sign-in links will print to this log. Set both in production.")
     uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "8000")))
