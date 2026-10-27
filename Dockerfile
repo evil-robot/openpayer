@@ -3,6 +3,6 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY config ./config
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir -e .
 EXPOSE 8000
-CMD ["payerprice-serve"]
+CMD ["openpayer-serve"]
