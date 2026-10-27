@@ -11,6 +11,10 @@ from .store import DB_PATH, connect
 
 
 def summary_by_code_payer(db_path: Path = DB_PATH) -> list[dict]:
+    from . import pg_store
+
+    if pg_store.enabled():
+        return pg_store.summary_by_code_payer()
     con = connect(db_path)
     rows = con.execute(
         """
@@ -43,6 +47,10 @@ def _fmt_bytes(n: int) -> str:
 
 def data_inventory(db_path: Path = DB_PATH) -> dict:
     """Live inventory of what is actually in the demo database right now."""
+    from . import pg_store
+
+    if pg_store.enabled():
+        return pg_store.data_inventory()
     con = connect(db_path)
     inv: dict = {}
     inv["total_rows"] = con.execute("SELECT count(*) FROM rates").fetchone()[0]
@@ -81,6 +89,10 @@ def data_inventory(db_path: Path = DB_PATH) -> dict:
 
 
 def rates_for_code(code: str, db_path: Path = DB_PATH, payer: str | None = None, limit: int = 500) -> list[dict]:
+    from . import pg_store
+
+    if pg_store.enabled():
+        return pg_store.rates_for_code(code, payer=payer, limit=limit)
     con = connect(db_path)
     sql = (
         "SELECT payer, negotiated_rate, negotiated_type, billing_class, provider_name, tin, npi, source_url "

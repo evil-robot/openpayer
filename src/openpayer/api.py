@@ -124,9 +124,9 @@ def _has_data() -> bool:
 def _dot_plot(rows: list[dict]) -> str:
     rates = sorted(r["negotiated_rate"] for r in rows if r.get("negotiated_rate") is not None)
     if not rates:
-        return "<p>No negotiated dollar rates yet for this code.</p>"
-    lo, hi = rates[0], rates[-1]
-    span = (hi - lo) or 1.0
+        return "<p>No dollar rates yet for this code.</p>"
+    lo, hi = 0.0, rates[-1]
+    span = hi or 1.0
     width, height = 900, 160
     dots = []
     for i, v in enumerate(rates):
@@ -136,10 +136,10 @@ def _dot_plot(rows: list[dict]) -> str:
     median = rates[len(rates) // 2]
     mx = 40 + (median - lo) / span * (width - 80)
     return (
-        f'<svg width="{width}" height="{height}" role="img" aria-label="Dot plot of negotiated rates">'
+        f'<svg width="{width}" height="{height}" role="img" aria-label="Dot plot of dollar rates on a scale starting at zero dollars">'
         + "".join(dots)
         + f'<line x1="{mx:.1f}" y1="15" x2="{mx:.1f}" y2="{height - 15}" stroke="#888" stroke-dasharray="4"/>'
-        + f'<text x="40" y="{height - 2}" font-size="11">${lo:,.0f} min</text>'
+        + f'<text x="40" y="{height - 2}" font-size="11">$0 scale start</text>'
         + f'<text x="{width - 120}" y="{height - 2}" font-size="11">${hi:,.0f} max</text>'
         + f'<text x="{mx + 4:.1f}" y="14" font-size="11">median ${median:,.0f}</text></svg>'
     )
@@ -285,60 +285,82 @@ def _market_strip() -> str:
         return ""
     xmax = max(all_vals) if all_vals else 100.0
     xmax = max(25.0, (int(xmax / 25) + 1) * 25)
+    # Split by rate type: rates are never pooled across types (Tufte rule and
+    # the benchmark contract). Each code gets one sub-row per dollar type.
+    grouped: dict[str, list[tuple[str, list[dict]]]] = {}
+    n_subrows = 0
+    for c in codes:
+        by_type: dict[str, list[dict]] = {}
+        for r in per_code[c.code]:
+            by_type.setdefault(str(r["negotiated_type"]), []).append(r)
+        groups = sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
+        grouped[c.code] = groups
+        n_subrows += max(1, len(groups))
     width, label_w, plot_w = 940, 110, 700
-    row_h = 58
-    height = 34 + row_h * len(codes) + 10
+    sub_h = 40
+    height = 34 + sub_h * n_subrows + 10
     x0 = label_w
     def X(v: float) -> float:
         return x0 + (v / xmax) * plot_w
     parts = [
         f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Market strip: for each billing code, one dot per observed dollar rate on a shared dollar scale, with the middle half and median marked">'
+        'aria-label="Market strip: for each billing code and rate type, one dot per observed dollar rate on a shared dollar scale starting at zero, with the middle half and median marked per type">'
     ]
     tick = 0
     while tick <= xmax:
         parts.append(f'<line x1="{X(tick):.0f}" y1="22" x2="{X(tick):.0f}" y2="{height - 8}" stroke="#ddd"/>')
         parts.append(f'<text x="{X(tick):.0f}" y="14" font-size="10" fill="#444" text-anchor="middle">${tick:,.0f}</text>')
         tick += 25
-    for i, c in enumerate(codes):
-        top = 30 + i * row_h
-        mid = top + 22
-        rows = per_code[c.code]
-        parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-        parts.append(f'<text x="0" y="{mid + 13}" font-size="10" fill="#444">{html.escape(c.code_system)}</text>')
-        vals = sorted(float(r["negotiated_rate"]) for r in rows)
-        if not vals:
+    y_cursor = 30
+    for c in codes:
+        groups = grouped[c.code]
+        if not groups:
+            mid = y_cursor + 18
+            parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
+            parts.append(f'<text x="0" y="{mid + 13}" font-size="10" fill="#444">{html.escape(c.code_system)}</text>')
             parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#666">No dollar rates found in the files pulled so far</text>')
             parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#444">n=0</text>')
+            y_cursor += sub_h
             continue
-        p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
-        parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 10}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="20" fill="#d8d5cf"/>')
-        for j, r in enumerate(rows):
-            v = float(r["negotiated_rate"])
-            y = mid - 6 + (j % 3) * 6
-            who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
-            title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
-            attrs = (
-                f'class="dot" tabindex="0" data-code="{html.escape(c.code)}" data-rate="${v:,.2f}" '
-                f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
-                f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
-                f'data-src="{html.escape(str(r["source_url"]))}" '
-                f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
-            )
-            if r["negotiated_type"] == "negotiated":
-                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#13151E"><title>{title}</title></circle>')
+        for gi, (rtype, rows) in enumerate(groups):
+            mid = y_cursor + 18
+            if gi == 0:
+                parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
+            parts.append(f'<text x="34" y="{mid + 12}" font-size="10" fill="#444">{html.escape(rtype)}</text>')
+            vals = sorted(float(r["negotiated_rate"]) for r in rows)
+            p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
+            if len(vals) > 1:
+                parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#d8d5cf"/>')
+            for j, r in enumerate(sorted(rows, key=lambda z: float(z["negotiated_rate"]))):
+                v = float(r["negotiated_rate"])
+                y = mid - 5 + (j % 3) * 5
+                who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
+                title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
+                attrs = (
+                    f'class="dot" tabindex="0" data-code="{html.escape(c.code)}" data-rate="${v:,.2f}" '
+                    f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
+                    f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
+                    f'data-src="{html.escape(str(r["source_url"]))}" '
+                    f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
+                )
+                if rtype == "negotiated":
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#13151E"><title>{title}</title></circle>')
+                else:
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#F0EEEB" stroke="#13151E" stroke-width="1.4"><title>{title}</title></circle>')
+            parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#13151E" stroke-width="3"/>')
+            if len(vals) == 1:
+                parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
             else:
-                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#F0EEEB" stroke="#13151E" stroke-width="1.4"><title>{title}</title></circle>')
-        parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 13}" x2="{X(med):.1f}" y2="{mid + 13}" stroke="#13151E" stroke-width="3"/>')
-        parts.append(
-            f'<text x="{x0 + plot_w + 12}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
-            f'<text x="{x0 + plot_w + 12}" y="{mid + 12}" font-size="10" fill="#444">middle half ${p25:,.0f} to ${p75:,.0f} | n={len(vals)}</text>'
-        )
+                parts.append(
+                    f'<text x="{x0 + plot_w + 12}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
+                    f'<text x="{x0 + plot_w + 12}" y="{mid + 12}" font-size="10" fill="#444">middle half ${p25:,.0f} to ${p75:,.0f} | n={len(vals)}</text>'
+                )
+            y_cursor += sub_h
     parts.append("</svg>")
     return (
         "<h2>The market at a glance</h2>"
-        "<p>Each row is one billing code. Each dot is one real dollar rate from a payer file, on the same dollar scale for every row, so codes compare honestly. "
-        "The grey band is the middle half of rates (p25 to p75). The thick tick is the median. "
+        "<p>Each code gets one row per rate type. Types are never pooled: a negotiated median and a fee schedule median are different facts. Each dot is one real dollar rate from a payer file, on the same dollar scale starting at zero for every row, so codes and types compare honestly. "
+        "The grey band is the middle half of rates (p25 to p75) for that code and type. The thick tick is its median. Percentiles use linear interpolation between closest ranks. Observed dots are never interpolated. "
         "Filled dots are negotiated rates. Hollow dots are fee schedule rates. Hover any dot for payer, rate type, amount, and provider. "
         "Percentage rates are not dollars and are left out. Exact values for every dot are in the benchmark table above and on each code page.</p>"
         + "".join(parts)
