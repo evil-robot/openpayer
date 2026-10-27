@@ -480,26 +480,35 @@ def _market_strip() -> str:
         + "".join(parts)
         + "<p class='note'>Source: Cox HealthPlans machine-readable files, index dated September 16, 2026, pulled live by this system. "
         "Counts (n) are printed on every row. A row with n=0 means no dollar rate for that code appeared in the files pulled so far, not a rate of zero. "
-        "Hover or tab to any dot for its full detail panel.</p>"
+        "Hover any dot for a quick look. Click or tap a dot to pin its panel and open the source link. Tab works the same, Enter pins, Escape closes.</p>"
         + '<div id="tip" role="status"></div>'
         + """<script>
 (function(){
-  var tip=document.getElementById('tip');
-  function show(d){
-    var pos='Market for this code: median '+d.median+', middle half '+d.band;
+  var tip=document.getElementById('tip'), pinned=false;
+  function fill(d, link){
+    var pos='Market for this code and type: median '+d.median+', middle half '+d.band;
+    var src=link?'<a href="'+d.src+'">source payer file</a>':'Source: '+d.src;
     tip.innerHTML='<strong>'+d.rate+'</strong> &nbsp;'+d.code+'<br>'+d.payer+' | '+d.type+
       '<br>'+d.who+(d.tin?'<br>TIN '+d.tin:'')+(d.npi && d.who.indexOf(d.npi)<0?'<br>NPI '+d.npi:'')+
-      '<br>'+pos+'<br><span class="src">Source: '+d.src+'</span>';
-    tip.style.display='block';
+      '<br>'+pos+'<br><span class="src">'+src+'</span>'+(link?'<br><span class="src">Click again or press Escape to close</span>':'');
   }
-  function move(e){tip.style.left=Math.min(e.clientX+14,innerWidth-360)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-170)+'px';}
+  function show(d){fill(d,false);tip.style.display='block';}
+  function pin(d,el){
+    pinned=true;tip.classList.add('pinned');fill(d,true);
+    tip.style.display='block';tip.style.left='auto';tip.style.right='14px';tip.style.top='auto';tip.style.bottom='14px';
+  }
+  function unpin(){pinned=false;tip.classList.remove('pinned');tip.style.display='none';}
+  function move(e){if(pinned)return;tip.style.left=Math.min(e.clientX+14,innerWidth-360)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-190)+'px';}
   document.querySelectorAll('.dot').forEach(function(el){
-    el.addEventListener('mouseenter',function(e){show(el.dataset);move(e);});
+    el.addEventListener('mouseenter',function(e){if(!pinned){show(el.dataset);move(e);}});
     el.addEventListener('mousemove',move);
-    el.addEventListener('mouseleave',function(){tip.style.display='none';});
-    el.addEventListener('focus',function(){show(el.dataset);var r=el.getBoundingClientRect();tip.style.left=Math.min(r.left+14,innerWidth-360)+'px';tip.style.top=(r.bottom+10)+'px';});
-    el.addEventListener('blur',function(){tip.style.display='none';});
+    el.addEventListener('mouseleave',function(){if(!pinned)tip.style.display='none';});
+    el.addEventListener('click',function(){pinned?unpin():pin(el.dataset,el);});
+    el.addEventListener('focus',function(){if(!pinned){show(el.dataset);var r=el.getBoundingClientRect();tip.style.left=Math.min(r.left+14,innerWidth-360)+'px';tip.style.top=(r.bottom+10)+'px';}});
+    el.addEventListener('blur',function(){if(!pinned)tip.style.display='none';});
+    el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();pinned?unpin():pin(el.dataset,el);}});
   });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')unpin();});
 })();
 </script>"""
     )
