@@ -12,13 +12,43 @@ import ijson
 from .mrf import open_local
 
 
-def download_to_temp(url: str, suffix: str = ".json.gz") -> Path:
-    """Stream a remote MRF to a temp file. Caller deletes it. One file at a time."""
+def download_to_temp(url: str, suffix: str = ".json.gz", max_resumes: int = 10) -> Path:
+    """Stream a remote MRF to a temp file. Caller deletes it. One file at a time.
+
+    National in-network files run to many gigabytes and payers drop
+    connections mid-body (UnitedHealthcare closed one at 2.8 GB of a
+    15 GB file). A dropped body resumes with a Range request from the
+    byte already on disk instead of starting over, so a file finishes
+    unless the payer stays down for max_resumes consecutive attempts.
+    """
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix, prefix="mrf-")
-    with httpx.stream("GET", url, follow_redirects=True, timeout=httpx.Timeout(30.0, read=180.0)) as resp:
-        resp.raise_for_status()
-        for chunk in resp.iter_bytes(chunk_size=1024 * 1024):
-            tmp.write(chunk)
+    have = 0
+    resumes = 0
+    try:
+        while True:
+            headers = {"Range": f"bytes={have}-"} if have else {}
+            try:
+                with httpx.stream("GET", url, headers=headers, follow_redirects=True, timeout=httpx.Timeout(30.0, read=180.0)) as resp:
+                    if have and resp.status_code == 200:
+                        # Range ignored: the payer restarted the body.
+                        tmp.seek(0)
+                        tmp.truncate()
+                        have = 0
+                    resp.raise_for_status()
+                    for chunk in resp.iter_bytes(chunk_size=1024 * 1024):
+                        tmp.write(chunk)
+                        have += len(chunk)
+                break
+            except (httpx.TransportError, httpx.TimeoutException):
+                resumes += 1
+                if resumes > max_resumes:
+                    raise
+                tmp.flush()
+                continue
+    except BaseException:
+        tmp.close()
+        Path(tmp.name).unlink(missing_ok=True)
+        raise
     tmp.close()
     return Path(tmp.name)
 
