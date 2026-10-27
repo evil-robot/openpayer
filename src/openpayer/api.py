@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from . import auth as authmod
 from .benchmarks import data_inventory, rates_for_code, summary_by_code_payer
@@ -12,7 +12,38 @@ from .store import DB_PATH
 
 app = FastAPI(title="OpenPayer", description="Rate search and benchmarks from CMS price transparency files")
 
-PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify"}
+PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify", "/og.png"}
+
+OG_TITLE = "OpenPayer: what payers actually reimburse"
+OG_DESC = (
+    "Real negotiated and fee schedule rates for a short list of billing codes, "
+    "pulled only from the pricing files payers must publish for free under federal "
+    "price transparency law. Every rate links to its source payer file."
+)
+
+
+def og_head(canonical: str = "https://openpayer.medtruth.care/") -> str:
+    base = authmod.base_url()
+    img = f"{base}/og.png"
+    return (
+        f'<meta property="og:type" content="website"><meta property="og:site_name" content="OpenPayer">'
+        f'<meta property="og:title" content="{OG_TITLE}"><meta property="og:description" content="{OG_DESC}">'
+        f'<meta property="og:url" content="{canonical}"><meta property="og:image" content="{img}">'
+        '<meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200">'
+        '<meta property="og:image:height" content="630">'
+        f'<meta property="og:image:alt" content="Dot plot of real payer rates by billing code">'
+        '<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:title" content="{OG_TITLE}"><meta name="twitter:description" content="{OG_DESC}">'
+        f'<meta name="twitter:image" content="{img}">'
+        f'<meta name="description" content="{OG_DESC}">'
+    )
+
+
+@app.get("/og.png")
+def og_image():
+    from pathlib import Path
+
+    return FileResponse(Path(__file__).parent / "assets" / "og.png", media_type="image/png")
 
 
 @app.middleware("http")
@@ -37,7 +68,7 @@ def health():
 
 def _bare(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
-        f"<html><head><title>{html.escape(title)}</title><style>{STYLE}</style></head>"
+        f"<html><head><title>{html.escape(title)}</title>{og_head()}<style>{STYLE}</style></head>"
         f"<body><h1>OpenPayer</h1>{body}</body></html>"
     )
 
@@ -315,10 +346,10 @@ def home(request: Request) -> str:
     header = _header(request)
     if not codes:
         body = "<h1>What payers actually reimburse, for the codes you choose</h1><p class='lede'>No codes are configured yet, so nothing has been pulled. Add codes to config/codes.json, add payer sources, then pull.</p>"
-        return f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
+        return f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
     if not _has_data():
         body = "<h1>What payers actually reimburse, for the codes you choose</h1><p class='lede'>Codes are configured and no pull has run yet.</p>"
-        return f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
+        return f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
 
     rows = summary_by_code_payer()
     inv = data_inventory()
@@ -364,7 +395,7 @@ def home(request: Request) -> str:
         "Every rate links to the payer file it came from. Commercial tools sell this same public data. This one is open.</p>"
     )
     return (
-        f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
+        f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
         f"<h1>{html.escape(headline)}</h1>{lede}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
@@ -533,7 +564,7 @@ def code_page(code: str) -> str:
     )
     table = "<table><tr><th>Payer</th><th>Rate</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>" + trs + "</table>"
     return (
-        f"<html><head><title>{html.escape(code)} rates</title><style>{STYLE}</style></head><body>"
+        f"<html><head><title>{html.escape(code)} rates</title>{og_head()}<style>{STYLE}</style></head><body>"
         f"<p><a href='/'>All codes</a></p><h1>Code {html.escape(code)}</h1>{plot}"
         f"<h2>See the numbers</h2>{table}"
         "<p class='note'>Each dot is one observed negotiated rate for one provider group. Dashed line is the median. Rates link to the payer file they came from.</p></body></html>"
