@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS rates (
 CREATE INDEX IF NOT EXISTS rates_code_idx ON rates (billing_code);
 CREATE INDEX IF NOT EXISTS rates_payer_idx ON rates (payer);
 CREATE INDEX IF NOT EXISTS rates_npi_idx ON rates (npi);
+CREATE TABLE IF NOT EXISTS source_status (
+  payer TEXT PRIMARY KEY, source_type TEXT, index_url TEXT,
+  index_last_updated_on TEXT, files_in_index INTEGER,
+  files_attempted INTEGER, files_with_rows INTEGER, rows_kept INTEGER,
+  failures INTEGER, pulled_at TEXT
+);
 """
 
 
@@ -89,6 +95,29 @@ def rates_for_code(code: str, payer: str | None = None, limit: int = 500) -> lis
     params.append(limit)
     with _connect() as con:
         return con.execute(sql, params).fetchall()
+
+
+def upsert_source_status(rows: list[dict]) -> int:
+    cols = [
+        "payer", "source_type", "index_url", "index_last_updated_on", "files_in_index",
+        "files_attempted", "files_with_rows", "rows_kept", "failures", "pulled_at",
+    ]
+    with _connect() as con:
+        with con.cursor() as cur:
+            cur.executemany(
+                f"INSERT INTO source_status ({','.join(cols)}) VALUES ({','.join(['%s'] * len(cols))}) "
+                "ON CONFLICT (payer) DO UPDATE SET source_type=EXCLUDED.source_type, index_url=EXCLUDED.index_url, "
+                "index_last_updated_on=EXCLUDED.index_last_updated_on, files_in_index=EXCLUDED.files_in_index, "
+                "files_attempted=EXCLUDED.files_attempted, files_with_rows=EXCLUDED.files_with_rows, "
+                "rows_kept=EXCLUDED.rows_kept, failures=EXCLUDED.failures, pulled_at=EXCLUDED.pulled_at",
+                [tuple(r.get(c) for c in cols) for r in rows],
+            )
+    return len(rows)
+
+
+def list_source_status() -> list[dict]:
+    with _connect() as con:
+        return con.execute("SELECT * FROM source_status ORDER BY payer").fetchall()
 
 
 def _fmt_bytes(n: int) -> str:

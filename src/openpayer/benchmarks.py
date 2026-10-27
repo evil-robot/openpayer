@@ -88,6 +88,50 @@ def data_inventory(db_path: Path = DB_PATH) -> dict:
     return inv
 
 
+def sources_detail() -> list[dict]:
+    """Every configured source with pull status and freshness inputs.
+
+    Merges config/sources.json (what could be pulled) with recorded pull
+    status (what was pulled, when, and the payer index date). A configured
+    source with no pull record reads as not pulled yet, never as missing.
+    """
+    import json as _json
+
+    from .config import DATA_DIR, load_sources
+
+    recorded: dict[str, dict] = {}
+    from . import pg_store
+
+    if pg_store.enabled():
+        try:
+            recorded = {r["payer"]: r for r in pg_store.list_source_status()}
+        except Exception:
+            recorded = {}
+    else:
+        status_file = DATA_DIR / "source_status.json"
+        if status_file.exists():
+            recorded = _json.loads(status_file.read_text())
+    out: list[dict] = []
+    for src in load_sources():
+        rec = recorded.get(src.payer, {})
+        out.append(
+            {
+                "payer": src.payer,
+                "source_type": src.source_type,
+                "configured": bool(src.toc_url or src.direct_mrf_urls),
+                "index_url": src.toc_url,
+                "index_last_updated_on": rec.get("index_last_updated_on", ""),
+                "files_in_index": rec.get("files_in_index"),
+                "files_attempted": rec.get("files_attempted"),
+                "files_with_rows": rec.get("files_with_rows"),
+                "rows_kept": rec.get("rows_kept"),
+                "failures": rec.get("failures"),
+                "pulled_at": rec.get("pulled_at", ""),
+            }
+        )
+    return out
+
+
 def rates_for_code(code: str, db_path: Path = DB_PATH, payer: str | None = None, limit: int = 500) -> list[dict]:
     from . import pg_store
 

@@ -51,11 +51,16 @@ def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4) -> i
     total = 0
     out_dir = DATA_DIR / "raw"
     jobs: list[tuple[Source, int, str]] = []
+    toc_dates: dict[str, str] = {}
+    toc_totals: dict[str, int] = {}
     for src in sources:
         urls: list[str] = list(src.direct_mrf_urls)
         if src.toc_url:
             toc = load_toc(src.toc_url)
-            urls.extend(f["location"] for f in iter_toc_files(toc))
+            toc_dates[src.payer] = str(toc.get("last_updated_on", ""))
+            all_files = [f["location"] for f in iter_toc_files(toc)]
+            toc_totals[src.payer] = len(all_files)
+            urls.extend(all_files)
         if not urls:
             print(f"- {src.payer}: no files, skipped")
             continue
@@ -69,13 +74,49 @@ def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4) -> i
             print(f"  [dry-run] {url}")
         return 0
 
+    from collections import defaultdict
+    from datetime import datetime, timezone
+
+    stats: dict[str, dict] = defaultdict(lambda: {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0})
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for url, n, err in pool.map(lambda j: _pull_one(j[0], j[1], j[2], allowed, out_dir), jobs):
+        for (src, _i, url), (_u, n, err) in zip(
+            jobs, pool.map(lambda j: _pull_one(j[0], j[1], j[2], allowed, out_dir), jobs), strict=True
+        ):
+            s = stats[src.payer]
+            s["files_attempted"] += 1
             if err:
+                s["failures"] += 1
                 print(f"  FAILED {url}: {err}")
             else:
                 total += n
+                s["rows_kept"] += n
+                if n:
+                    s["files_with_rows"] += 1
                 print(f"  kept {n} rows <- {url.rsplit('/', 1)[-1]}")
+
+    status_path = DATA_DIR / "source_status.json"
+    prior: dict = {}
+    if status_path.exists():
+        import json as _json
+
+        prior = _json.loads(status_path.read_text())
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for src in sources:
+        if src.payer in stats:
+            prior[src.payer] = {
+                "payer": src.payer,
+                "source_type": src.source_type,
+                "index_url": src.toc_url,
+                "index_last_updated_on": toc_dates.get(src.payer, ""),
+                "files_in_index": toc_totals.get(src.payer, len(src.direct_mrf_urls)),
+                "pulled_at": now,
+                **stats[src.payer],
+            }
+    import json as _json
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    status_path.write_text(_json.dumps(prior, indent=1))
+    print(f"Wrote {status_path}")
     print(f"Done. Kept {total} rows total. Next: openpayer-load (builds DuckDB + benchmarks).")
     return 0
 

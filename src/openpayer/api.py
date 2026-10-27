@@ -107,17 +107,56 @@ def sign_out(request: Request):
     return resp
 
 STYLE = """
-body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:980px;padding:0 1rem;color:#13151E;background:#F0EEEB}
-table{border-collapse:collapse;width:100%;background:#fff}th,td{border:1px solid #ccc;padding:.4rem .6rem;text-align:right}
-th:first-child,td:first-child{text-align:left}.note{color:#444;font-size:.9rem}
-.dot{cursor:pointer}.dot:hover{stroke:#13151E;stroke-width:2.6}
-#tip{position:fixed;z-index:10;pointer-events:none;background:#13151E;color:#F0EEEB;padding:.55rem .7rem;
-font-size:.85rem;line-height:1.45;max-width:340px;display:none;box-shadow:0 2px 10px rgba(0,0,0,.35)}
-#tip strong{font-size:1rem}#tip .src{color:#c9c6c0;font-size:.75rem;word-break:break-all}
+:root{--st-green-50:#F0FDFA;--st-green-100:#CCFBF1;--st-green-600:#0D9488;--st-green-700:#0F766E;
+--st-gold-600:#A16207;--st-gray-50:#F9FAFB;--st-gray-100:#F3F4F6;--st-gray-200:#E5E7EB;--st-gray-300:#D1D5DB;
+--st-gray-500:#6B7280;--st-gray-700:#374151;--st-gray-900:#111827;--ink:var(--st-gray-900);--muted:var(--st-gray-700);
+--rule:var(--st-gray-200);--bg:#ffffff;--panel:var(--st-gray-50);--link:var(--st-green-700);--focus:var(--st-gold-600);
+--font:"Inter",system-ui,-apple-system,sans-serif;--mono:"JetBrains Mono","SF Mono","Fira Code",monospace}
+*{box-sizing:border-box}
+body{font-family:var(--font);margin:0;color:var(--ink);background:var(--bg);line-height:1.6;font-size:1rem}
+.wrap{max-width:1080px;margin:0 auto;padding:0 1.25rem 3rem}
+a{color:var(--link);text-decoration-thickness:1px;text-underline-offset:.15em}a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:2px}
+.skip{position:absolute;left:-999px;top:.5rem;background:var(--ink);color:#fff;padding:.5rem .75rem;z-index:20}
+.skip:focus{left:.5rem}
+.site-header{border-bottom:1px solid var(--rule);background:var(--panel)}
+.site-header .wrap{display:flex;align-items:baseline;gap:1rem;padding-top:1rem;padding-bottom:1rem}
+.brand{font-weight:700;font-size:1.35rem;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+.brand-sub{color:var(--muted);font-size:.92rem}
+.head-right{margin-left:auto;color:var(--muted);font-size:.9rem;display:flex;gap:.9rem;align-items:baseline}
+.head-right form{display:inline}.head-right button{background:none;border:0;color:var(--link);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+h1{font-size:clamp(1.7rem,3vw,2.3rem);line-height:1.2;letter-spacing:-.02em;text-wrap:balance;margin:1.6rem 0 .6rem;max-width:34ch}
+h2{font-size:1.45rem;letter-spacing:-.015em;margin:2.2rem 0 .7rem;padding-top:.6rem;border-top:1px solid var(--rule);text-wrap:balance}
+h3{font-size:1.08rem;font-weight:600;margin:1.4rem 0 .4rem}
+.lede{font-size:1.12rem;max-width:68ch}.coverage{color:var(--muted);max-width:75ch}
+.num{font-family:var(--mono);font-size:.92em}
+.table-wrap{overflow-x:auto;margin:1rem 0 1.5rem}
+table{border-collapse:collapse;width:100%;font-size:.95rem;line-height:1.45}
+th,td{text-align:left;vertical-align:top;padding:.45rem .6rem;border-bottom:1px solid var(--rule)}
+th{font-weight:600;border-bottom:2px solid var(--ink)}
+td.n,th.n{text-align:right;font-family:var(--mono);font-size:.9em}
+tbody tr:nth-child(even){background:var(--st-gray-50)}
+.note,.meta{color:var(--muted);font-size:.92rem}
+details{border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem;margin:1rem 0;background:#fff}
+details summary{cursor:pointer;font-weight:600}
+.dot{cursor:pointer}.dot:hover{stroke:var(--ink);stroke-width:2.6}
+#tip{position:fixed;z-index:30;pointer-events:none;background:var(--ink);color:#fff;padding:.6rem .75rem;border-radius:8px;
+font-size:.86rem;line-height:1.5;max-width:350px;display:none;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+#tip.pinned{pointer-events:auto}
+#tip strong{font-size:1.05rem}#tip .src{color:var(--st-gray-300);font-size:.74rem;word-break:break-all}
+#tip a{color:var(--st-green-100)}
+.fresh-fresh{color:var(--st-green-700);font-weight:600}.fresh-stale{color:var(--st-gold-600);font-weight:600}
 """
 
 
 def _has_data() -> bool:
+    from . import pg_store
+
+    if pg_store.enabled():
+        try:
+            return pg_store.data_inventory()["total_rows"] > 0
+        except Exception:
+            return False
     return DB_PATH.exists()
 
 
@@ -132,13 +171,13 @@ def _dot_plot(rows: list[dict]) -> str:
     for i, v in enumerate(rates):
         x = 40 + (v - lo) / span * (width - 80)
         y = 30 + (i % 10) * 12
-        dots.append(f'<circle cx="{x:.1f}" cy="{y}" r="3.5" fill="#13151E"><title>${v:,.2f}</title></circle>')
+        dots.append(f'<circle cx="{x:.1f}" cy="{y}" r="3.5" fill="#111827"><title>${v:,.2f}</title></circle>')
     median = rates[len(rates) // 2]
     mx = 40 + (median - lo) / span * (width - 80)
     return (
         f'<svg width="{width}" height="{height}" role="img" aria-label="Dot plot of dollar rates on a scale starting at zero dollars">'
         + "".join(dots)
-        + f'<line x1="{mx:.1f}" y1="15" x2="{mx:.1f}" y2="{height - 15}" stroke="#888" stroke-dasharray="4"/>'
+        + f'<line x1="{mx:.1f}" y1="15" x2="{mx:.1f}" y2="{height - 15}" stroke="#6B7280" stroke-dasharray="4"/>'
         + f'<text x="40" y="{height - 2}" font-size="11">$0 scale start</text>'
         + f'<text x="{width - 120}" y="{height - 2}" font-size="11">${hi:,.0f} max</text>'
         + f'<text x="{mx + 4:.1f}" y="14" font-size="11">median ${median:,.0f}</text></svg>'
@@ -202,59 +241,134 @@ If an item says waiting, the code is ready and only configuration or data is mis
 """
 
 
-@app.get("/", response_class=HTMLResponse)
-def home() -> str:
-    codes = load_codes()
-    code_items = "".join(f"<li>{html.escape(c.code)} ({html.escape(c.code_system)}) {html.escape(c.note)}</li>" for c in codes) or "<li>None yet</li>"
-    if not codes:
-        status = "<p><strong>Current status: wired and waiting.</strong> No codes are configured, so no data has been pulled and no rates are shown. Add codes to <code>config/codes.json</code> and payer sources to <code>config/sources.json</code>, then pull.</p>"
-        bench = ""
-    elif not _has_data():
-        status = f"<p><strong>Current status: codes configured, no pull yet.</strong></p><ul>{code_items}</ul>"
-        bench = ""
-    else:
-        rows = summary_by_code_payer()
-        trs = "".join(
-            "<tr><td><a href='/code/{code}'>{code}</a></td><td>{payer}</td><td>{rtype}</td><td>{n}</td><td>{groups}</td><td>${p25:,.2f}</td><td>${med:,.2f}</td><td>${p75:,.2f}</td></tr>".format(
-                code=html.escape(str(r["billing_code"])), payer=html.escape(str(r["payer"])), rtype=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
-                groups=r["n_provider_groups"], p25=r["p25"] or 0, med=r["median"] or 0, p75=r["p75"] or 0,
+def _header(request: Request) -> str:
+    email = authmod.session_email(request.cookies.get(authmod.COOKIE)) if authmod.auth_enabled() else None
+    right = (
+        f"<span>{html.escape(email)}</span><form method='post' action='/sign-out'><button type='submit'>Sign out</button></form>"
+        if email
+        else "<a href='/api/codes'>API</a>"
+    )
+    return (
+        "<header class='site-header'><div class='wrap'>"
+        "<a class='brand' href='/'>OpenPayer</a><span class='brand-sub'>What payers actually reimburse, from their own published files</span>"
+        f"<span class='head-right'>{right}</span></div></header>"
+    )
+
+
+def _freshness(detail: dict) -> tuple[str, str]:
+    """Return (verdict text, css class) for one source record."""
+    from datetime import date
+
+    if not detail.get("configured"):
+        return ("Not configured yet. No index address, so nothing can be pulled.", "")
+    if not detail.get("pulled_at"):
+        return ("Configured, not pulled yet.", "")
+    idx = detail.get("index_last_updated_on") or ""
+    try:
+        age = (date.today() - date.fromisoformat(idx)).days
+    except ValueError:
+        return ("Pulled. Payer index date not recorded.", "")
+    if age <= 120:
+        return (f"Fresh. Index is {age} days old, inside the quarterly cycle.", "fresh-fresh")
+    return (f"Past the quarterly cycle. Index is {age} days old, rates may have changed in newer files.", "fresh-stale")
+
+
+def _sources_section() -> str:
+    from .benchmarks import sources_detail
+
+    rows = []
+    for d in sources_detail():
+        verdict, cls = _freshness(d)
+        idx_link = (
+            f"<a href='{html.escape(str(d['index_url']))}'>index</a>" if d["index_url"] else "not set"
+        )
+        rows.append(
+            "<tr><td>{payer}</td><td>{stype}</td><td>{idx}</td><td>{idate}</td><td>{pulled}</td>"
+            "<td class='n'>{files}</td><td class='n'>{kept}</td><td class='{cls}'>{verdict}</td></tr>".format(
+                payer=html.escape(str(d["payer"])), stype=html.escape(str(d["source_type"])), idx=idx_link,
+                idate=html.escape(str(d["index_last_updated_on"] or "not recorded")),
+                pulled=html.escape(str((d["pulled_at"] or "never")[:10])),
+                files=(f"{d['files_attempted']} of {d['files_in_index']} in index" if d["files_attempted"] is not None else "none"),
+                kept=(d["rows_kept"] if d["rows_kept"] is not None else 0), cls=cls, verdict=html.escape(verdict),
             )
-            for r in rows
         )
-        status = f"<p><strong>Current status: live with pulled data.</strong> Configured codes:</p><ul>{code_items}</ul>"
-        inv = data_inventory()
-        payer_rows = "".join(
-            f"<li>{html.escape(str(p['payer']))}: {p['rows']} rate rows from {p['files']} source files</li>" for p in inv["by_payer"]
+    return (
+        "<h2>Data sources and freshness</h2>"
+        "<p>Every source the system can pull, what it last pulled, and how old the payer's own published index is. "
+        "Payers refresh quarterly under the current federal rule, so an index inside 120 days reads Fresh. "
+        "This table is built live from the pull records and the configuration, never typed by hand.</p>"
+        "<div class='table-wrap'><table><tr><th>Payer</th><th>Type</th><th>Source</th><th>Payer index dated</th><th>We pulled</th><th>Files searched</th><th>Rows kept</th><th>Freshness</th></tr>"
+        + "".join(rows)
+        + "</table></div>"
+        "<p class='note'>Not configured yet means the slot exists in config/sources.json and waits for that payer's index address. "
+        "It is a to-do shown on purpose, not missing data pretending to be a result.</p>"
+    )
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request) -> str:
+    codes = load_codes()
+    header = _header(request)
+    if not codes:
+        body = "<h1>What payers actually reimburse, for the codes you choose</h1><p class='lede'>No codes are configured yet, so nothing has been pulled. Add codes to config/codes.json, add payer sources, then pull.</p>"
+        return f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
+    if not _has_data():
+        body = "<h1>What payers actually reimburse, for the codes you choose</h1><p class='lede'>Codes are configured and no pull has run yet.</p>"
+        return f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>{body}{_sources_section()}</div></body></html>"
+
+    rows = summary_by_code_payer()
+    inv = data_inventory()
+    detail_by_payer = {d["payer"]: d for d in __import__("openpayer.benchmarks", fromlist=["sources_detail"]).sources_detail()}
+    cov_bits = []
+    for p in inv["by_payer"]:
+        d = detail_by_payer.get(p["payer"], {})
+        cov_bits.append(f"{p['payer']}, index dated {d.get('index_last_updated_on') or 'not recorded'}, pulled {(d.get('pulled_at') or '')[:10] or 'date not recorded'}")
+    coverage = "; ".join(cov_bits)
+    headline = "What payers actually reimburse, for the codes you choose"
+    for r in rows:
+        if r["billing_code"] == "99213" and r["negotiated_type"] == "fee schedule":
+            others = [x for x in rows if x["billing_code"].startswith("994") and x["negotiated_type"] == "fee schedule"]
+            lo = min((x["median"] for x in others), default=0)
+            hi = max((x["median"] for x in others), default=0)
+            headline = f"At {r['payer']}, a 99213 office visit pays a median of ${r['median']:,.2f}, and the interprofessional consult codes pay medians of ${lo:,.2f} to ${hi:,.2f}"
+            break
+    trs = "".join(
+        "<tr><td><a href='/code/{code}'>{code}</a></td><td>{payer}</td><td>{rtype}</td><td class='n'>{n}</td><td class='n'>{groups}</td><td class='n'>${p25:,.2f}</td><td class='n'>${med:,.2f}</td><td class='n'>${p75:,.2f}</td></tr>".format(
+            code=html.escape(str(r["billing_code"])), payer=html.escape(str(r["payer"])), rtype=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
+            groups=r["n_provider_groups"], p25=r["p25"] or 0, med=r["median"] or 0, p75=r["p75"] or 0,
         )
-        code_rows = "".join(
-            f"<li>{html.escape(str(c['billing_code']))} ({html.escape(str(c['billing_code_type']))}): {c['rows']} rows</li>" for c in inv["by_code"]
-        )
-        type_rows = "".join(f"<li>{html.escape(str(t['negotiated_type'] or 'blank'))}: {t['rows']} rows</li>" for t in inv["by_type"])
-        src_rows = "".join(
-            f"<li><a href='{html.escape(str(s))}'>{html.escape(str(s).rsplit('/', 1)[-1])}</a></li>" for s in inv["sources"][:25]
-        )
-        extra_src = f"<li>Plus {len(inv['sources']) - 25} more source files, all listed in the database.</li>" if len(inv["sources"]) > 25 else ""
-        inventory = (
-            "<h2>Data in the demo today</h2>"
-            "<p>This section is a live query of the demo database, not typed copy. It changes the moment a pull or load runs.</p>"
-            f"<ul><li><strong>Total rate rows stored:</strong> {inv['total_rows']} (only the configured codes; everything else in each payer file was discarded during the pull)</li>"
-            f"<li><strong>How much data that is:</strong> kept rate files take {inv['raw_size']} on disk (gzipped, {inv['raw_files_on_disk']} files); the searchable database is {inv['db_size']}. For scale, the payer files these rates were pulled from run about 9 MB each uncompressed before filtering, and a large national payer publishes files thousands of times bigger. The filter is why this demo stays megabytes, not terabytes.</li>"
-            f"<li><strong>Source files kept from:</strong> {inv['source_files']} payer files; distinct NPIs on kept rates: {inv['distinct_npis']}</li>"
-            f"<li><strong>Distinct provider groups (by tax ID):</strong> {inv['provider_groups']}; distinct named providers: {inv['providers_named']}"
-            + (" Named providers are zero here because this payer cites providers by NPI without defining names in the file. The NPIs are kept on every rate; names join later from the NPI registry." if inv["providers_named"] == 0 and inv["total_rows"] else "")
-            + "</li></ul>"
-            f"<h3>By payer</h3><ul>{payer_rows}</ul>"
-            f"<h3>By billing code</h3><ul>{code_rows}</ul>"
-            f"<h3>By rate type (types are never blended in benchmarks)</h3><ul>{type_rows}</ul>"
-            f"<h3>Source files (the audit trail; select one to open the payer original)</h3><ul>{src_rows}{extra_src}</ul>"
-        )
-        bench = inventory + (
-            "<h2>Benchmarks (observed dollar rates by rate type, never interpolated, types never blended)</h2>"
-            "<table><tr><th>Code</th><th>Payer</th><th>Rate type</th><th>Rates</th><th>Provider groups</th><th>p25</th><th>Median</th><th>p75</th></tr>"
-            + trs + "</table><p class='note'>Select a code for the dot plot, the full rate table, and the source file behind every rate.</p>"
-        ) + _market_strip()
-    intro = "<p>OpenPayer is an open source rate search and benchmark tool. It takes the pricing files that payers must publish for free under federal price transparency law, keeps only the billing codes you choose, and lets anyone look up what payers actually reimburse, by code, payer, and provider, with the source file shown for every rate. Commercial tools sell access to this same public data. This one is open.</p>"
-    return f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><h1>OpenPayer</h1>{intro}{status}{bench}{SYSTEM_DOES}<p class='note'>Source: payer machine-readable files published under CMS price transparency rules. Every rate traces to its source file URL in the code view. Counts are shown with each benchmark so a thin sample is never dressed up as a market.</p></body></html>"
+        for r in rows
+    )
+    g_row = "<tr><td>G2212</td><td>all pulled payers</td><td>any</td><td class='n'>0</td><td class='n'>0</td><td colspan='3'>Searched, found none. G2212 is a Medicare code and this commercial payer does not publish it. Its price lives in the Medicare fee schedule, not here.</td></tr>" if not any(r["billing_code"] == "G2212" for r in rows) else ""
+    bench = (
+        "<h2 id='rates'>See the numbers</h2>"
+        "<div class='table-wrap'><table><tr><th>Code</th><th>Payer</th><th>Rate type</th><th>Rates</th><th>Provider groups</th><th>p25</th><th>Median</th><th>p75</th></tr>"
+        + trs + g_row + "</table></div>"
+        "<p class='note'>p25 is the rate a quarter of provider groups are at or below. The median is the middle rate. p75 is where only a quarter are paid more. Select a code for every rate and the payer file behind it.</p>"
+    )
+    volume = (
+        f"<details><summary>How much data is in here right now</summary><p class='note'>Live from the database on every load. "
+        f"Total rate rows stored: {inv['total_rows']}, only the configured codes. Everything else in each payer file was discarded during the pull. "
+        f"Kept files: {inv['source_files']} source files. Distinct NPIs on kept rates: {inv['distinct_npis']}. "
+        f"Distinct provider groups by tax ID: {inv['provider_groups']}, named providers: {inv['providers_named']}. "
+        "Named providers can be zero when a payer cites NPIs without names. Names join later from the NPI registry.</p></details>"
+    )
+    how = f"<details><summary>How this works, and what it does not do yet</summary>{SYSTEM_DOES}</details>"
+    lede = (
+        "<p class='lede'>OpenPayer reads the pricing files payers must publish for free under federal price transparency law, "
+        "keeps only the billing codes on our list, and shows what payers actually reimburse, by code, payer, and provider. "
+        "Every rate links to the payer file it came from. Commercial tools sell this same public data. This one is open.</p>"
+    )
+    return (
+        f"<html><head><title>OpenPayer</title><style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
+        f"<h1>{html.escape(headline)}</h1>{lede}"
+        f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
+        + ", ".join(html.escape(c.code) for c in codes)
+        + ".</p>"
+        + _market_strip() + bench + _sources_section() + volume + how
+        + "<p class='note'>Source: payer machine readable files published under CMS price transparency rules. Counts sit beside every benchmark so a thin sample is never dressed up as a market.</p>"
+        "</div></body></html>"
+    )
 
 
 def _percentile(sorted_vals: list[float], q: float) -> float:
@@ -308,8 +422,8 @@ def _market_strip() -> str:
     ]
     tick = 0
     while tick <= xmax:
-        parts.append(f'<line x1="{X(tick):.0f}" y1="22" x2="{X(tick):.0f}" y2="{height - 8}" stroke="#ddd"/>')
-        parts.append(f'<text x="{X(tick):.0f}" y="14" font-size="10" fill="#444" text-anchor="middle">${tick:,.0f}</text>')
+        parts.append(f'<line x1="{X(tick):.0f}" y1="22" x2="{X(tick):.0f}" y2="{height - 8}" stroke="#E5E7EB"/>')
+        parts.append(f'<text x="{X(tick):.0f}" y="14" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
         tick += 25
     y_cursor = 30
     for c in codes:
@@ -317,20 +431,20 @@ def _market_strip() -> str:
         if not groups:
             mid = y_cursor + 18
             parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-            parts.append(f'<text x="0" y="{mid + 13}" font-size="10" fill="#444">{html.escape(c.code_system)}</text>')
-            parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#666">No dollar rates found in the files pulled so far</text>')
-            parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#444">n=0</text>')
+            parts.append(f'<text x="0" y="{mid + 13}" font-size="10" fill="#374151">{html.escape(c.code_system)}</text>')
+            parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
+            parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
             y_cursor += sub_h
             continue
         for gi, (rtype, rows) in enumerate(groups):
             mid = y_cursor + 18
             if gi == 0:
                 parts.append(f'<text x="0" y="{mid - 2}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-            parts.append(f'<text x="34" y="{mid + 12}" font-size="10" fill="#444">{html.escape(rtype)}</text>')
+            parts.append(f'<text x="34" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(rtype)}</text>')
             vals = sorted(float(r["negotiated_rate"]) for r in rows)
             p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
             if len(vals) > 1:
-                parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#d8d5cf"/>')
+                parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#CCFBF1"/>')
             for j, r in enumerate(sorted(rows, key=lambda z: float(z["negotiated_rate"]))):
                 v = float(r["negotiated_rate"])
                 y = mid - 5 + (j % 3) * 5
@@ -344,16 +458,16 @@ def _market_strip() -> str:
                     f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
                 )
                 if rtype == "negotiated":
-                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#13151E"><title>{title}</title></circle>')
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#111827"><title>{title}</title></circle>')
                 else:
-                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#F0EEEB" stroke="#13151E" stroke-width="1.4"><title>{title}</title></circle>')
-            parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#13151E" stroke-width="3"/>')
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.4"><title>{title}</title></circle>')
+            parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#111827" stroke-width="3"/>')
             if len(vals) == 1:
                 parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
             else:
                 parts.append(
                     f'<text x="{x0 + plot_w + 12}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
-                    f'<text x="{x0 + plot_w + 12}" y="{mid + 12}" font-size="10" fill="#444">middle half ${p25:,.0f} to ${p75:,.0f} | n={len(vals)}</text>'
+                    f'<text x="{x0 + plot_w + 12}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f} | n={len(vals)}</text>'
                 )
             y_cursor += sub_h
     parts.append("</svg>")
@@ -411,6 +525,13 @@ def code_page(code: str) -> str:
         f"<h2>See the numbers</h2>{table}"
         "<p class='note'>Each dot is one observed negotiated rate for one provider group. Dashed line is the median. Rates link to the payer file they came from.</p></body></html>"
     )
+
+
+@app.get("/api/sources")
+def api_sources():
+    from .benchmarks import sources_detail
+
+    return sources_detail()
 
 
 @app.get("/api/codes")

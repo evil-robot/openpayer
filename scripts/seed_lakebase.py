@@ -44,6 +44,14 @@ def main() -> int:
         total += n
         print(f"{f.name}: {n} rows")
     print(f"Seeded {total} rows into Lakebase.")
+
+    status_file = Path(__file__).resolve().parents[1] / "data" / "source_status.json"
+    if status_file.exists():
+        from openpayer.pg_store import upsert_source_status
+
+        recorded = json.loads(status_file.read_text())
+        n = upsert_source_status(list(recorded.values()))
+        print(f"Upserted {n} source status rows.")
     return 0
 
 
