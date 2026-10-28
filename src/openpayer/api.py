@@ -229,9 +229,28 @@ svg.strip{width:100%;height:auto;display:block}
 .tools{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;margin:1.2rem 0;padding:.8rem 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:10px}
 .tools input{padding:.4rem .6rem;border:1px solid var(--st-gray-300);border-radius:6px;font:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
-.chip{border:1px solid var(--st-gray-300);border-radius:999px;padding:.15rem .7rem;font-size:.85rem;text-decoration:none}
+.chip{border:1px solid var(--st-gray-300);border-radius:999px;padding:.45rem .85rem;min-height:40px;font-size:.88rem;text-decoration:none;background:#fff;color:var(--ink);cursor:pointer;font:inherit}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .downloads{font-size:.85rem;color:var(--muted)}
 .payer-section{margin-top:2.4rem;border-top:2px solid var(--rule);padding-top:.6rem}
+h1.hero{font-size:clamp(2rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-0.025em;max-width:24ch;text-wrap:balance}
+.proof{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:1rem 0}
+.proof div{background:#fff;padding:.85rem 1rem;font-size:.92rem;line-height:1.45}
+.proof strong{display:block;font-size:.98rem}
+.explorebar{position:sticky;top:0;z-index:15;background:#fff;border-bottom:1px solid var(--rule);padding:.75rem 0;display:flex;flex-wrap:wrap;gap:.7rem;align-items:center}
+.seg{display:flex;border:1px solid var(--st-gray-300);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:.45rem .8rem;min-height:40px;font:inherit;font-size:.88rem;cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff}
+.resultline{font-size:.85rem;color:var(--muted);width:100%}
+.answerband{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:1.1rem 0 1.5rem}
+.answerband .cell{background:#fff;padding:1rem 1.1rem}
+.answerband .lab{font-size:.82rem;font-weight:600;color:var(--muted)}
+.answerband .med{font-family:var(--mono);font-size:1.55rem;line-height:1.15}
+.lede-sm{font-size:1.05rem;max-width:68ch;margin:.2rem 0}
+.code-head h1{font-size:clamp(2rem,4vw,2.75rem);line-height:1.1;letter-spacing:-0.02em;margin:.75rem 0 .35rem}
+.code-head .cnum{font-family:var(--mono);font-weight:700}
+.cellbar{display:block;height:6px;background:#9CA3AF;margin-bottom:2px}
+@media (max-width:700px){.proof{grid-template-columns:1fr}.answerband{grid-template-columns:1fr}}
 #tip.pinned{pointer-events:auto}
 #tip strong{font-size:1.05rem}#tip .src{color:var(--st-gray-300);font-size:.74rem;word-break:break-all}
 #tip a{color:var(--st-green-100)}
@@ -442,15 +461,16 @@ def home(request: Request) -> str:
     payers = [p["payer"] for p in inv["by_payer"]] or sorted({str(r["payer"]) for r in rows})
     payer_phrase = payers[0] if len(payers) == 1 else f"{len(payers)} payers"
 
-    headline = "What payers actually reimburse, for the codes you choose"
+    headline = "No estimates. Only rates we saw in the file."
     neg13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "negotiated"), None)
     fs13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "fee schedule"), None)
     lead_row = neg13 or fs13
+    finding = ""
     if lead_row:
         kind = "negotiated rate" if lead_row["negotiated_type"] == "negotiated" else "fee schedule rate"
-        headline = (
+        finding = (
             f"Across {payer_phrase}, a 99213 office visit pays a median {kind} of ${lead_row['median']:,.0f} "
-            f"(middle half ${lead_row['p25']:,.0f} to ${lead_row['p75']:,.0f}, n={lead_row['n_rates']})"
+            f"(middle half ${lead_row['p25']:,.0f} to ${lead_row['p75']:,.0f}, n={lead_row['n_rates']}). "
         )
 
     all_rows_by_code: dict[str, list[dict]] = {}
@@ -470,10 +490,11 @@ def home(request: Request) -> str:
             q = f"?payer={html.escape(str(link_payer))}" if link_payer else ""
             out.append(
                 "<tr data-code='{code}'><td><a href='/code/{code}{q}'>{code}</a></td><td>{rtype}</td><td class='n'>{n}</td><td class='n'>{groups}</td>"
-                "<td class='n'>{p25}</td><td class='n'>{med}</td><td class='n'>{p75}</td><td class='n'>{mn}</td><td class='n'>{mx}</td></tr>".format(
+                "<td class='n'>{p25}</td><td class='n'><span class='cellbar' style='width:{bar:.0f}%'></span>{med}</td><td class='n'>{p75}</td><td class='n'>{mn}</td><td class='n'>{mx}</td></tr>".format(
                     code=html.escape(str(r["billing_code"])), q=q, rtype=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
                     groups=r["n_provider_groups"], p25=_money(r["p25"]), med=_money(r["median"]), p75=_money(r["p75"]),
                     mn=_money(r["min_rate"]), mx=_money(r["max_rate"]),
+                    bar=(float(r["median"] or 0) / xmax * 100) if xmax else 0,
                 )
             )
         return "".join(out)
@@ -491,17 +512,32 @@ def home(request: Request) -> str:
     chips = "".join(
         f"<a class='chip' href='#payer-{html.escape(_slug_payer(p))}'>{html.escape(p)}</a>" for p in payers
     )
+    payer_chips = "<button class='chip on' data-payer-chip=''>All payers</button>" + "".join(
+        f"<button class='chip' data-payer-chip='{html.escape(p)}'>{html.escape(p)}</button>" for p in payers
+    )
+    total_rates = sum(int(r["n_rates"]) for r in agg)
     tools = (
-        "<div class='tools'><label>Filter tables by code <input id='codefilter' type='search' placeholder='try 99213' autocomplete='off'></label>"
-        f"<span class='chips'>{chips}</span>"
+        "<div class='explorebar' role='group' aria-label='Explore controls'>"
+        "<span class='seg' role='group' aria-label='Rate type'><button data-type-btn='' class='on'>Both apart</button>"
+        "<button data-type-btn='negotiated'>Negotiated</button><button data-type-btn='fee schedule'>Fee schedule</button></span>"
+        f"<span class='chips'>{payer_chips}</span>"
+        "<label>Code <input id='codefilter' type='search' placeholder='try 99213' autocomplete='off'></label>"
         "<span class='downloads'>Download: <a href='/api/aggregate.csv'>aggregate CSV</a> · <a href='/api/summary.csv'>by-payer CSV</a> · "
-        "<a href='/api/aggregate'>aggregate JSON</a> · <a href='/api/summary'>by-payer JSON</a> · <a href='/api/sources'>sources JSON</a></span></div>"
+        "<a href='/api/aggregate'>aggregate JSON</a> · <a href='/api/summary'>by-payer JSON</a> · <a href='/api/sources'>sources JSON</a></span>"
+        f"<span class='resultline' id='resultline'>Showing {len(codes)} codes · {len(payers)} payers · {total_rates} benchmark rates · scale $0 to ${xmax:,.0f}, fixed for every view. {html.escape(finding)}</span></div>"
     )
     market = (
-        "<h2 id='rates'>The market across payers</h2>"
-        "<p>All pulled payers together, per code and rate type. The payer count on every table row says how many payers that aggregate rests on. "
-        "Each payer also gets its own section below with the same scale, so a payer can be read alone and compared honestly.</p>"
-        + _strip_block(codes, all_rows_by_code, xmax)
+        "<h2 id='rates'>What each payer pays, code by code</h2>"
+        "<p>One row per payer per rate type: the dot is the median, the line is the middle half of observed rates. "
+        "Rate types are never pooled. Every row carries its count. Select a row label to open that code at that payer, where every rate sits with its source file. "
+        "Vertical position inside a dot row further down is layout only. Horizontal position is dollars.</p>"
+        + _payer_spread(rows, codes, xmax)
+        + "<h2>The consult family, step by step</h2>"
+        "<p>The six interprofessional consult codes in config order. One line per payer per rate type (solid negotiated, dashed fee schedule), "
+        "whiskers are the middle half. A missing code breaks the line. Nothing is drawn across a gap. 99213 and G2212 are not in this family.</p>"
+        + _family_ladder(rows, xmax)
+        + "<h2>Every observed rate, payer by payer</h2>"
+        + _strip_block(codes, all_rows_by_code, xmax, script=False)
         + "<h3>See the numbers: all payers</h3>"
         + ("<div class='table-wrap'><table class='filterable'><thead><tr><th>Code</th><th>Rate type</th><th>Payers</th><th>Rates</th><th>Provider groups</th>"
            "<th>p25</th><th>Median</th><th>p75</th><th>Min</th><th>Max</th></tr></thead><tbody>")
@@ -538,7 +574,7 @@ def home(request: Request) -> str:
         sections.append(
             f"<section class='payer-section' id='payer-{html.escape(_slug_payer(payer))}'>"
             f"<h2>{html.escape(payer)}</h2><p class='coverage'>{html.escape(line)}</p>"
-            + _strip_block(codes, sub_by_code, xmax)
+            + _strip_block(codes, sub_by_code, xmax, script=False)
             + f"<h3>See the numbers: {html.escape(payer)}</h3>"
             + _TABLE_HEAD
             + _trs(sub, link_payer=payer)
@@ -554,19 +590,26 @@ def home(request: Request) -> str:
     )
     how = f"<details><summary>How this works, and what it does not do yet</summary>{SYSTEM_DOES}</details>"
     lede = (
-        "<p class='lede'>OpenPayer reads the pricing files payers must publish for free under federal price transparency law, "
-        "keeps only the billing codes on our list, and shows what payers actually reimburse, by code, payer, and provider. "
-        "Every rate links to the payer file it came from. Commercial tools sell this same public data. This one is open.</p>"
+        "<p class='lede'>OpenPayer reads payer transparency files for eight billing codes today, about fifteen planned, "
+        "and shows only rates we actually found in those files, each one linked to its source with its count beside it. "
+        "You get the filed rate, not a modelled guess you have to take on trust.</p>"
+    )
+    proof = (
+        "<div class='proof'>"
+        "<div><strong>Open source, Apache 2.0</strong>Anyone can run the whole chain and audit exactly how a number was produced.</div>"
+        "<div><strong>Observed, not estimated</strong>Every rate is taken from a real payer filing, linked to that file, with its count shown. Rate types are never blended or interpolated.</div>"
+        "<div><strong>Narrow on purpose</strong>A short list of billing codes in full, every rate we can find for those codes, instead of spreading thin across every code.</div>"
+        "</div>"
     )
     return (
         f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
-        f"<h1>{html.escape(headline)}</h1>{lede}"
+        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
         + tools + market + "".join(sections) + _sources_section() + volume + how
         + "<p class='note'>Source: payer machine readable files published under CMS price transparency rules. Counts sit beside every benchmark so a thin sample is never dressed up as a market.</p>"
-        "</div></body></html>"
+        + '<div id="tip" role="status"></div>' + _EXPLORE_SCRIPT + "</div></body></html>"
     )
 
 
@@ -665,12 +708,13 @@ def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict
         vals = sorted(float(r["negotiated_rate"]) for r in g["rows"])
         p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
         label = " · ".join(g["codes"])
+        parts.append(f'<g class="srow" data-code="{html.escape(" ".join(g["codes"]).lower())}" data-type="{html.escape(str(g["rtype"]))}">')
         parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(label)}</text>')
         parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(str(g["rtype"]))}</text>')
         if len(g["codes"]) > 1:
             parts.append(f'<text x="{x0 + 2}" y="{mid - 13}" font-size="9.5" fill="#6B7280">same published amounts for each of these codes</text>')
         if len(vals) > 1:
-            parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#CCFBF1"/>')
+            parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#E5E7EB"/>')
         drawn, capped = _sample(g["rows"])
         if capped:
             notes.append(f"{label} ({g['rtype']}): {len(drawn)} of {len(vals)} dots drawn, evenly spaced. Every rate is in the tables.")
@@ -700,16 +744,278 @@ def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict
                 f'<text x="{rx}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
                 f'<text x="{rx}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f}{per}</text>'
             )
+        parts.append("</g>")
         y_cursor += sub_h
     for code in empties:
         mid = y_cursor + 18
+        parts.append(f'<g class="srow" data-code="{html.escape(code.lower())}" data-type="">')
         parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(code)}</text>')
         parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(codes_meta.get(code, ""))}</text>')
         parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
         parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
+        parts.append("</g>")
         y_cursor += sub_h
     parts.append("</svg>")
     return "".join(parts), notes
+
+
+def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
+    """Hero visual: one row per payer per rate type inside each code block.
+
+    Whisker is the middle half (p25 to p75), dot is the median. Every code
+    keeps its own block and its own rows; identical distributions are NOT
+    merged here, because the repetition is the comparison. Row click goes
+    to the code page filtered to that payer, where every rate lives.
+    """
+    width, label_w, plot_w = 980, 150, 560
+    x0 = label_w
+
+    def X(v: float) -> float:
+        return x0 + (v / xmax) * plot_w
+
+    by_code: dict[str, list[dict]] = {}
+    for r in summary_rows:
+        by_code.setdefault(str(r["billing_code"]), []).append(r)
+    row_h = 26
+    total_rows = sum(max(1, len(by_code.get(c.code, []))) for c in codes)
+    height = 40 + total_rows * row_h + len(codes) * 22 + 12
+    parts = [
+        f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
+        'aria-label="Payer spread: for each billing code, one row per payer and rate type showing the median and middle half of observed dollar rates on a shared scale starting at zero">'
+    ]
+    tick = 0
+    while tick <= xmax:
+        parts.append(f'<line x1="{X(tick):.0f}" y1="26" x2="{X(tick):.0f}" y2="{height - 10}" stroke="#E5E7EB"/>')
+        parts.append(f'<text x="{X(tick):.0f}" y="16" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+        tick += 25
+    y = 36
+    for c in codes:
+        parts.append(f'<text x="0" y="{y + 12}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
+        parts.append(f'<text x="34" y="{y + 12}" font-size="9.5" fill="#6B7280">{html.escape(c.note.replace("Sample code: ", "").replace("Interprofessional ", ""))}</text>')
+        y += 20
+        rows = sorted(
+            by_code.get(c.code, []),
+            key=lambda r: (str(r["negotiated_type"]) != "negotiated", str(r["payer"])),
+        )
+        if not rows:
+            parts.append(f'<g class="prow" data-code="{html.escape(c.code.lower())}" data-type="" data-payer=""><text x="{x0 + 6}" y="{y + 12}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text><text x="{x0 + plot_w + 12}" y="{y + 12}" font-size="11" fill="#374151">n=0</text></g>')
+            y += row_h
+            continue
+        for r in rows:
+            med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
+            mid = y + 11
+            payer = str(r["payer"])
+            rtype = str(r["negotiated_type"])
+            parts.append(f'<g class="prow" data-code="{html.escape(c.code.lower())}" data-type="{html.escape(rtype)}" data-payer="{html.escape(payer)}">')
+            parts.append(f'<text x="34" y="{mid + 3}" font-size="10" fill="#374151">{html.escape(payer)} · {html.escape(rtype)}</text>')
+            parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 5}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="10" fill="#E5E7EB"/>')
+            parts.append(f'<line x1="{X(p25):.1f}" y1="{mid}" x2="{X(p75):.1f}" y2="{mid}" stroke="#111827" stroke-width="2"/>')
+            if rtype == "negotiated":
+                parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>{html.escape(payer)} {html.escape(c.code)} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
+            else:
+                parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {html.escape(c.code)} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
+            parts.append(
+                f'<a href="/code/{html.escape(c.code)}?payer={html.escape(payer)}"><text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={r["n_rates"]} · {r["n_provider_groups"]} groups</text></a>'
+            )
+            parts.append("</g>")
+            y += row_h
+        y += 6
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+_FAMILY = ["99446", "99447", "99448", "99449", "99451", "99452"]
+
+
+def _family_ladder(summary_rows: list[dict], xmax: float) -> str:
+    """The interprofessional consult family, code by code.
+
+    One line per payer per rate type across the six family codes in
+    config order. A missing code breaks the line: no segment is drawn
+    across a gap, and nothing is interpolated.
+    """
+    width, height = 980, 320
+    left, right, top, bottom = 60, 250, 26, 46
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+
+    def X(i: int) -> float:
+        return left + (i / (len(_FAMILY) - 1)) * plot_w
+
+    def Y(v: float) -> float:
+        return top + plot_h - (v / xmax) * plot_h
+
+    by_key: dict[tuple[str, str], dict[str, dict]] = {}
+    for r in summary_rows:
+        if str(r["billing_code"]) in _FAMILY:
+            by_key.setdefault((str(r["payer"]), str(r["negotiated_type"])), {})[str(r["billing_code"])] = r
+    parts = [
+        f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
+        'aria-label="Family ladder: median rate by interprofessional consult code, one line per payer and rate type, middle half whiskers, gaps where a payer publishes no rate">'
+    ]
+    tick = 0
+    while tick <= xmax:
+        parts.append(f'<line x1="{left}" y1="{Y(tick):.0f}" x2="{left + plot_w}" y2="{Y(tick):.0f}" stroke="#E5E7EB"/>')
+        parts.append(f'<text x="{left - 6}" y="{Y(tick) + 3:.0f}" font-size="10" fill="#374151" text-anchor="end">${tick:,.0f}</text>')
+        tick += 50
+    for i, code in enumerate(_FAMILY):
+        parts.append(f'<text x="{X(i):.0f}" y="{height - 22}" font-size="11" font-weight="700" text-anchor="middle">{code}</text>')
+    for (payer, rtype), series in sorted(by_key.items()):
+        pts = [(i, series[c]) for i, c in enumerate(_FAMILY) if c in series]
+        if not pts:
+            continue
+        parts.append(f'<g class="lrow" data-type="{html.escape(rtype)}" data-payer="{html.escape(payer)}">')
+        for (i1, r1), (i2, r2) in zip(pts, pts[1:]):
+            if i2 - i1 == 1:
+                dash = ' stroke-dasharray="5 4"' if rtype != "negotiated" else ""
+                parts.append(f'<line x1="{X(i1):.1f}" y1="{Y(float(r1["median"] or 0)):.1f}" x2="{X(i2):.1f}" y2="{Y(float(r2["median"] or 0)):.1f}" stroke="#111827" stroke-width="2"{dash}/>')
+        for i, r in pts:
+            med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
+            parts.append(f'<line x1="{X(i):.1f}" y1="{Y(p75):.1f}" x2="{X(i):.1f}" y2="{Y(p25):.1f}" stroke="#111827" stroke-width="1.2"/>')
+            if rtype == "negotiated":
+                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#111827"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, n={r["n_rates"]}</title></circle>')
+            else:
+                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, n={r["n_rates"]}</title></circle>')
+        li, lr = pts[-1]
+        total_n = sum(int(r["n_rates"]) for _, r in pts)
+        parts.append(f'<text x="{X(li) + 12:.1f}" y="{Y(float(lr["median"] or 0)) + 3:.1f}" font-size="10.5">{html.escape(payer)} · {html.escape(rtype)} · n={total_n}</text>')
+        parts.append("</g>")
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
+    """Code page payer chart: one row per payer per rate type.
+
+    Thick line is the middle half, dot is the median, thin line is min
+    to max when n is 10 or more. A light connector joins a payer's two
+    type medians and labels the gap; it is a difference of two typical
+    rates, never a pooled figure.
+    """
+    width, label_w, plot_w = 980, 190, 540
+    x0 = label_w
+
+    def X(v: float) -> float:
+        return x0 + (v / xmax_code) * plot_w
+
+    rows = sorted(bench, key=lambda r: (str(r["payer"]), str(r["negotiated_type"]) != "negotiated"))
+    row_h = 30
+    height = 42 + max(1, len(rows)) * row_h + 8
+    parts = [
+        f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
+        'aria-label="By payer: median and middle half of observed rates for this code, one row per payer and rate type">'
+    ]
+    tick = 0
+    while tick <= xmax_code:
+        parts.append(f'<line x1="{X(tick):.0f}" y1="28" x2="{X(tick):.0f}" y2="{height - 8}" stroke="#E5E7EB"/>')
+        parts.append(f'<text x="{X(tick):.0f}" y="17" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+        tick += 25
+    by_payer: dict[str, dict[str, tuple[dict, float]]] = {}
+    y = 40
+    for r in rows:
+        med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
+        mid = y + 12
+        by_payer.setdefault(str(r["payer"]), {})[str(r["negotiated_type"])] = (r, mid)
+        parts.append(f'<text x="0" y="{mid + 3}" font-size="11">{html.escape(str(r["payer"]))} · {html.escape(str(r["negotiated_type"]))}</text>')
+        if int(r["n_rates"]) >= 10:
+            parts.append(f'<line x1="{X(float(r["min_rate"] or 0)):.1f}" y1="{mid}" x2="{X(float(r["max_rate"] or 0)):.1f}" y2="{mid}" stroke="#9CA3AF" stroke-width="1"/>')
+        parts.append(f'<line x1="{X(p25):.1f}" y1="{mid}" x2="{X(p75):.1f}" y2="{mid}" stroke="#111827" stroke-width="3.5"/>')
+        if str(r["negotiated_type"]) == "negotiated":
+            parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
+        else:
+            parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
+        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={r["n_rates"]}</text>')
+        y += row_h
+    for payer, types in by_payer.items():
+        if "negotiated" in types and "fee schedule" in types:
+            (rn, mn), (rf, mf) = types["negotiated"], types["fee schedule"]
+            gap = abs(float(rn["median"] or 0) - float(rf["median"] or 0))
+            gx = max(X(float(rn["median"] or 0)), X(float(rf["median"] or 0))) + 8
+            parts.append(f'<line x1="{X(float(rn["median"] or 0)):.1f}" y1="{mn}" x2="{X(float(rf["median"] or 0)):.1f}" y2="{mf}" stroke="#9CA3AF" stroke-width="1"/>')
+            parts.append(f'<text x="{gx:.1f}" y="{(mn + mf) / 2 + 3:.1f}" font-size="9.5" fill="#6B7280">typical gap ${gap:,.0f}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _distribution_facets(rows_by_type: dict[str, list[dict]], xmax_code: float) -> str:
+    """Observed distribution per rate type for one code.
+
+    Dots while they can still be counted (n up to 120), a $10-bin
+    histogram above that, with counts printed and outlying observed
+    rates dotted below the axis with their values. Facets are separate
+    panels; types are never combined.
+    """
+    out: list[str] = []
+    for rtype in ("negotiated", "fee schedule"):
+        rows = sorted(rows_by_type.get(rtype, []), key=lambda z: float(z["negotiated_rate"] or 0))
+        if not rows:
+            continue
+        vals = [float(r["negotiated_rate"] or 0) for r in rows]
+        med = _percentile(vals, 0.5)
+        out.append(f"<h3>{html.escape(rtype)}: {len(vals)} observed rates, median ${med:,.0f}</h3>")
+        width, label_w, plot_w = 980, 30, 700
+        x0 = label_w
+
+        def X(v: float) -> float:
+            return x0 + (v / xmax_code) * plot_w
+
+        if len(vals) <= 120:
+            lanes = 6
+            height = 120
+            parts = [f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="Every observed {html.escape(rtype)} rate for this code as a dot">']
+            for j, r in enumerate(rows):
+                v = float(r["negotiated_rate"] or 0)
+                y = 30 + (j % lanes) * 12
+                who = r.get("provider_name") or ("NPI " + str(r["npi"]) if r.get("npi") else "provider not named in file")
+                attrs = (
+                    f'class="dot" tabindex="0" data-code="" data-rate="${v:,.2f}" data-payer="{html.escape(str(r["payer"]))}" '
+                    f'data-type="{html.escape(rtype)}" data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" '
+                    f'data-npi="{html.escape(str(r["npi"]))}" data-src="{html.escape(str(r["source_url"]))}" data-median="${med:,.2f}" data-band=""'
+                )
+                if rtype == "negotiated":
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#111827" fill-opacity="0.88"><title>${v:,.2f}</title></circle>')
+                else:
+                    parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>${v:,.2f}</title></circle>')
+            parts.append(f'<line x1="{X(med):.1f}" y1="18" x2="{X(med):.1f}" y2="104" stroke="#111827" stroke-width="2.5"/>')
+            tick = 0
+            while tick <= xmax_code:
+                parts.append(f'<text x="{X(tick):.0f}" y="114" font-size="9.5" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+                tick += 25
+            parts.append("</svg>")
+            out.append("".join(parts))
+        else:
+            bin_w = 10.0
+            nbins = max(1, int(xmax_code // bin_w))
+            counts = [0] * (nbins + 1)
+            for v in vals:
+                counts[min(nbins, int(v // bin_w))] += 1
+            cmax = max(counts) or 1
+            height = 190
+            base = 140
+            parts = [f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="Histogram of observed {html.escape(rtype)} rates in ten dollar bins, counts printed">']
+            for i, c in enumerate(counts):
+                if not c:
+                    continue
+                bx, bw = X(i * bin_w), max(1.5, X(bin_w) - X(0))
+                bh = (c / cmax) * 105
+                parts.append(f'<rect x="{bx:.1f}" y="{base - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="#111827" fill-opacity="0.85"><title>${i * 10:.0f} to ${i * 10 + 10:.0f}: {c} rates</title></rect>')
+                if c >= 3:
+                    parts.append(f'<text x="{bx + bw / 2:.1f}" y="{base - bh - 4:.1f}" font-size="9" text-anchor="middle">{c}</text>')
+            lo, hi = _percentile(vals, 0.01), _percentile(vals, 0.99)
+            for r in rows:
+                v = float(r["negotiated_rate"] or 0)
+                if v < lo or v > hi:
+                    parts.append(f'<circle cx="{X(v):.1f}" cy="{base + 14}" r="3.5" fill="#FFFFFF" stroke="#111827"><title>observed outlier ${v:,.2f}</title></circle>')
+                    parts.append(f'<text x="{X(v):.1f}" y="{base + 30}" font-size="8.5" text-anchor="middle">${v:,.0f}</text>')
+            parts.append(f'<line x1="{X(med):.1f}" y1="20" x2="{X(med):.1f}" y2="{base}" stroke="#111827" stroke-width="2.5"/>')
+            tick = 0
+            while tick <= xmax_code:
+                parts.append(f'<text x="{X(tick):.0f}" y="{base + 46}" font-size="9.5" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+                tick += 25
+            parts.append("</svg>")
+            out.append("".join(parts))
+            out.append(f"<p class='note'>Bars count observed rates in $10 bins. Dots below the axis are the observed rates outside the middle 98 percent, each labeled. No smoothing, nothing between observed rates.</p>")
+    return "".join(out)
 
 
 _STRIP_CAPTION = (
@@ -723,25 +1029,7 @@ _STRIP_CAPTION = (
 )
 
 
-def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float) -> str:
-    """Full strip markup (caption + svg + notes + detail panel + script)."""
-    code_groups: dict[str, list[dict]] = {}
-    for c in codes:
-        by_type: dict[str, list[dict]] = {}
-        for r in rows_by_code.get(c.code, []):
-            by_type.setdefault(str(r["negotiated_type"]), []).append(r)
-        code_groups[c.code] = [
-            {"rtype": t, "rows": rs}
-            for t, rs in sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
-        ]
-    svg, notes = _strip_svg(code_groups, xmax, {c.code: c.code_system for c in codes})
-    note_html = "".join(f"<p class='note'>{html.escape(n)}</p>" for n in notes)
-    return (
-        f"<p>{_STRIP_CAPTION}</p>"
-        + svg
-        + note_html
-        + '<div id="tip" role="status"></div>'
-        + """<script>
+_EXPLORE_SCRIPT = """<script>
 (function(){
   var tip=document.getElementById('tip'), pinned=false;
   function fill(d, link){
@@ -774,9 +1062,58 @@ def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float) -> str
     document.querySelectorAll('table.filterable tbody tr').forEach(function(tr){
       tr.style.display=(!q||(tr.dataset.code||'').indexOf(q)>-1)?'':'none';
     });
+    document.querySelectorAll('.srow,.prow').forEach(function(g){
+      g.style.opacity=(!q||(g.dataset.code||'').indexOf(q)>-1)?'':'0.3';
+    });
   });}
+  var curType='', curPayer='';
+  function applyExplore(){
+    document.querySelectorAll('.prow,.lrow,.srow').forEach(function(g){
+      var t=g.dataset.type||'', p=g.dataset.payer;
+      var hideT=curType && t && t!==curType;
+      var fadeP=curPayer && p!==undefined && p!=='' && p!==curPayer;
+      g.style.display=hideT?'none':'';
+      if(!hideT) g.style.opacity=fadeP?'0.15':'';
+    });
+    var n=0; document.querySelectorAll('.prow').forEach(function(g){if(g.style.display!=='none'&&g.style.opacity!=='0.15')n++;});
+    var rl=document.getElementById('resultline');
+    if(rl) rl.textContent='Showing '+n+' payer rows in the spread · rate type: '+(curType||'both apart')+' · payer: '+(curPayer||'all')+'. Scale and counts unchanged; nothing was pooled or rescaled.';
+  }
+  document.querySelectorAll('[data-type-btn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('[data-type-btn]').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); curType=b.dataset.typeBtn; applyExplore();
+    });
+  });
+  document.querySelectorAll('[data-payer-chip]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('[data-payer-chip]').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on'); curPayer=b.dataset.payerChip; applyExplore();
+    });
+  });
 })();
 </script>"""
+
+
+def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float, script: bool = True) -> str:
+    """Full strip markup (caption + svg + notes + detail panel + script)."""
+    code_groups: dict[str, list[dict]] = {}
+    for c in codes:
+        by_type: dict[str, list[dict]] = {}
+        for r in rows_by_code.get(c.code, []):
+            by_type.setdefault(str(r["negotiated_type"]), []).append(r)
+        code_groups[c.code] = [
+            {"rtype": t, "rows": rs}
+            for t, rs in sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
+        ]
+    svg, notes = _strip_svg(code_groups, xmax, {c.code: c.code_system for c in codes})
+    note_html = "".join(f"<p class='note'>{html.escape(n)}</p>" for n in notes)
+    return (
+        f"<p>{_STRIP_CAPTION}</p>"
+        + svg
+        + note_html
+        + ('<div id="tip" role="status"></div>' if script else "")
+        + (_EXPLORE_SCRIPT if script else "")
     )
 
 
@@ -784,10 +1121,67 @@ def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float) -> str
 def code_page(code: str, payer: str | None = None) -> str:
     if not _has_data():
         return f"<html><body style='font-family:system-ui'><h1>{html.escape(code)}</h1><p>No data pulled yet.</p></body></html>"
-    bench = [r for r in summary_by_code_payer() if str(r["billing_code"]) == code]
+    codes_cfg = {c.code: c for c in load_codes()}
+    cfg = codes_cfg.get(code)
+    bench_all = [r for r in summary_by_code_payer() if str(r["billing_code"]) == code]
+    agg_all = [r for r in summary_all_payers() if str(r["billing_code"]) == code]
+    bench = [r for r in bench_all if not payer or str(r["payer"]) == payer]
+    rows = rates_for_code(code, payer=payer, limit=2000)
+    dollar = [r for r in rows if r.get("negotiated_rate") is not None]
+    vals_all = [float(r["negotiated_rate"]) for r in dollar]
+    xmax_global = max(25.0, (int(max(vals_all) / 25) + 1) * 25) if vals_all else 100.0
+    p99 = _percentile(sorted(vals_all), 0.99) if len(vals_all) >= 20 else (max(vals_all) if vals_all else 0.0)
+    xmax_code = max(25.0, (int(p99 / 25) + 1) * 25) if vals_all else 100.0
+
+    total_n = sum(int(r["n_rates"]) for r in bench)
+    total_groups = sum(int(r["n_provider_groups"]) for r in bench)
+    payer_count = len({str(r["payer"]) for r in bench})
+    counts_line = (
+        f"{total_n} observed dollar rates · {total_groups} provider groups · {payer_count} payer"
+        + ("s" if payer_count != 1 else "")
+        + (f" · showing {html.escape(payer)}" if payer else "")
+    )
+
+    band_rows = bench if payer else agg_all
+    cells = []
+    for rtype in ("negotiated", "fee schedule"):
+        r = next((x for x in band_rows if str(x["negotiated_type"]) == rtype), None)
+        if r is None:
+            cells.append(
+                f"<div class='cell'><span class='lab'>{html.escape(rtype)}</span><div class='med'>no rates yet</div>"
+                "<span class='lab'>n=0 in the files pulled so far</span></div>"
+            )
+        elif int(r["n_rates"]) == 1:
+            cells.append(
+                f"<div class='cell'><span class='lab'>{html.escape(rtype)}</span><div class='med'>${float(r['median'] or 0):,.0f}</div>"
+                "<span class='lab'>single observed rate · n=1 · no spread claimed</span></div>"
+            )
+        else:
+            who = f"{r['n_payers']} payers" if not payer else html.escape(payer)
+            cells.append(
+                f"<div class='cell'><span class='lab'>{html.escape(rtype)}</span><div class='med'>${float(r['median'] or 0):,.0f}</div>"
+                f"<span class='lab'>median · middle half ${float(r['p25'] or 0):,.0f} to ${float(r['p75'] or 0):,.0f} · n={r['n_rates']} · {who}</span></div>"
+            )
+    answer = "<div class='answerband'>" + "".join(cells) + "</div>"
+
+    whiskers = _code_whiskers(bench, xmax_code) if bench else ""
+    scale_note = (
+        f"<p class='note'>Chart scale $0 to ${xmax_code:,.0f} covers the middle 99 percent of this code's observed rates. "
+        f"The site-wide scale is $0 to ${xmax_global:,.0f}; this page tightens position only, never the counts.</p>"
+        if xmax_code < xmax_global else ""
+    )
+    by_type: dict[str, list[dict]] = {}
+    for r in dollar:
+        by_type.setdefault(str(r["negotiated_type"]), []).append(r)
+    facets = _distribution_facets(by_type, xmax_code)
+
     payer_links = "".join(
         f"<a class='chip' href='/code/{html.escape(code)}?payer={html.escape(str(p))}'>{html.escape(str(p))}</a>"
-        for p in sorted({str(r["payer"]) for r in bench})
+        for p in sorted({str(r["payer"]) for r in bench_all})
+    )
+    scope = (
+        f"<p class='coverage'>Showing {html.escape(payer)} only. <a href='/code/{html.escape(code)}'>Show all payers</a></p>"
+        if payer else (f"<p class='coverage'>Filter by payer: <span class='chips'>{payer_links}</span></p>" if payer_links else "")
     )
     breakdown = ""
     if bench:
@@ -802,8 +1196,6 @@ def code_page(code: str, payer: str | None = None) -> str:
             )
             + "</table></div>"
         )
-    rows = rates_for_code(code, payer=payer, limit=500)
-    plot = _dot_plot(rows)
     trs = "".join(
         "<tr><td>{p}</td><td>${v:,.2f}</td><td>{t}</td><td>{prov}</td><td>{tin}</td><td><a href='{src}'>source file</a></td></tr>".format(
             p=html.escape(str(r["payer"])), v=r["negotiated_rate"] or 0, t=html.escape(str(r["negotiated_type"])),
@@ -811,20 +1203,21 @@ def code_page(code: str, payer: str | None = None) -> str:
         )
         for r in rows[:200]
     )
-    table = "<table><tr><th>Payer</th><th>Rate</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>" + trs + "</table>"
-    if payer:
-        scope = f"<p class='coverage'>Showing {html.escape(payer)} only. <a href='/code/{html.escape(code)}'>Show all payers</a></p>"
-        shown = payer
-    else:
-        scope = f"<p class='coverage'>Filter by payer: <span class='chips'>{payer_links}</span></p>" if payer_links else ""
-        shown = "all payers"
+    table = "<div class='table-wrap'><table><tr><th>Payer</th><th>Rate</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>" + trs + "</table></div>"
     csv_link = f"/api/rates/{html.escape(code)}.csv" + (f"?payer={html.escape(payer)}" if payer else "")
+    shown = payer if payer else "all payers"
     return (
         f"<html><head><title>{html.escape(code)} rates</title>{og_head()}<style>{STYLE}</style></head><body><div class='wrap'>"
-        f"<p><a href='/'>All codes</a></p><h1>Code {html.escape(code)}</h1>{scope}{breakdown}{plot}"
+        f"<p><a href='/'>All codes</a></p><div class='code-head'><h1><span class='cnum'>{html.escape(code)}</span></h1>"
+        f"<p class='lede-sm'>{html.escape(cfg.note if cfg else '')} · {html.escape(cfg.code_system if cfg else '')}</p>"
+        f"<p class='coverage'>{counts_line}</p></div>{scope}{answer}"
+        f"<h2>By payer</h2>{whiskers}{scale_note}"
+        f"<h2>The rates themselves</h2>{facets}"
+        f"{breakdown}"
         f"<h2>See the numbers ({shown})</h2>{table}"
-        f"<p class='note'>Each dot is one observed dollar rate for one provider group ({shown}). Dashed line is the median. Rates link to the payer file they came from. "
-        f"Download: <a href='{csv_link}'>these rates as CSV</a> · <a href='/api/rates/{html.escape(code)}'>JSON</a>. First 200 rows shown; the CSV and JSON carry up to 500.</p></div></body></html>"
+        f"<p class='note'>Rates are sorted low to high as stored. Each rate links to the payer file it came from. "
+        f"Download: <a href='{csv_link}'>these rates as CSV</a> · <a href='/api/rates/{html.escape(code)}'>JSON</a>. First 200 rows shown; the CSV and JSON carry up to 500.</p>"
+        + '<div id="tip" role="status"></div>' + _EXPLORE_SCRIPT + "</div></body></html>"
     )
 
 
