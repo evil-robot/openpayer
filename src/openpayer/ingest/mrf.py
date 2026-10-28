@@ -12,27 +12,29 @@ import ijson
 def open_local(source: str):
     """Open a local MRF (.json, .json.gz, or .zip) as a binary stream.
 
-    ZIP support exists because some Cigna partners serve the rate file
-    as a .zip holding one JSON (sometimes itself gzipped). The largest
-    member is the rate file; read me files and manifests ride along in
-    some archives and are never the biggest thing in them.
+    The container is sniffed from the first bytes, never trusted from
+    the file name: Cigna serves plain JSON at .json.gz addresses, and
+    some Cigna partners serve a .zip holding one JSON (sometimes itself
+    gzipped). In a zip the largest member is the rate file; read me
+    files and manifests ride along in some archives and are never the
+    biggest thing in them.
     """
-    clean = source.split("?")[0]
-    if clean.endswith(".zip"):
+    raw = io.BufferedReader(io.FileIO(source, "rb"))
+    head = raw.peek(4)[:4]
+    if head[:2] == b"\x1f\x8b":
+        return gzip.GzipFile(fileobj=raw)
+    if head[:4] == b"PK\x03\x04":
         import zipfile
 
-        zf = zipfile.ZipFile(source)
+        zf = zipfile.ZipFile(raw)
         members = [i for i in zf.infolist() if not i.is_dir()]
         if not members:
             raise ValueError(f"empty zip archive: {source}")
         info = max(members, key=lambda i: i.file_size)
-        stream = zf.open(info)
-        if info.filename.endswith(".gz"):
+        stream = io.BufferedReader(zf.open(info))
+        if stream.peek(2)[:2] == b"\x1f\x8b":
             return gzip.GzipFile(fileobj=stream)
         return stream
-    raw = io.BufferedReader(io.FileIO(source, "rb"))
-    if clean.endswith(".gz"):
-        return gzip.GzipFile(fileobj=raw)
     return raw
 
 

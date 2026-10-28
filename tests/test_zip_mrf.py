@@ -30,6 +30,19 @@ _DOC = {
 }
 
 
+def test_parse_plain_json_named_gz(tmp_path):
+    """Cigna serves uncompressed JSON at .json.gz addresses (Oct 2026).
+
+    The reader must sniff the bytes, not trust the suffix, or every
+    such file fails with 'Not a gzipped file' and lands as a failure.
+    """
+    path = tmp_path / "rates.json.gz"
+    path.write_text(json.dumps(_DOC), encoding="utf-8")
+    rows = list(parse_mrf(str(path), {"99213"}, payer="Cigna"))
+    assert len(rows) == 1
+    assert rows[0]["negotiated_rate"] == 88.5
+
+
 def test_parse_zip_wrapped_mrf(tmp_path):
     path = tmp_path / "rates.zip"
     with zipfile.ZipFile(path, "w") as zf:
