@@ -684,7 +684,10 @@ def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict
             flat.append({"code": code, **g})
     merged = _merge_identical(flat)
     notes: list[str] = []
-    width, label_w, plot_w, right_w = 980, 120, 640, 208
+    width, right_w = 980, 208
+    widest = max((len(" · ".join(g["codes"])) for g in merged), default=5)
+    label_w = min(360, max(120, int(widest * 7.6) + 10))
+    plot_w = width - label_w - right_w - 12
     sub_h = 40
     n_rows = len(merged) + len(empties)
     height = 34 + sub_h * max(1, n_rows) + 10
@@ -739,7 +742,7 @@ def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict
         if len(vals) == 1:
             parts.append(f'<text x="{rx}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
         else:
-            per = f" | n={len(vals)} each" if len(g["codes"]) > 1 else f" | n={len(vals)}"
+            per = f" | n={len(vals):,} each" if len(g["codes"]) > 1 else f" | n={len(vals):,}"
             parts.append(
                 f'<text x="{rx}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
                 f'<text x="{rx}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f}{per}</text>'
@@ -767,7 +770,7 @@ def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
     merged here, because the repetition is the comparison. Row click goes
     to the code page filtered to that payer, where every rate lives.
     """
-    width, label_w, plot_w = 980, 150, 560
+    width, label_w, plot_w = 1120, 235, 505
     x0 = label_w
 
     def X(v: float) -> float:
@@ -791,7 +794,7 @@ def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
     y = 36
     for c in codes:
         parts.append(f'<text x="0" y="{y + 12}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-        parts.append(f'<text x="34" y="{y + 12}" font-size="9.5" fill="#6B7280">{html.escape(c.note.replace("Sample code: ", "").replace("Interprofessional ", ""))}</text>')
+        parts.append(f'<text x="54" y="{y + 12}" font-size="9.5" fill="#6B7280">{html.escape(c.note.replace("Sample code: ", "").replace("Interprofessional ", ""))}</text>')
         y += 20
         rows = sorted(
             by_code.get(c.code, []),
@@ -815,7 +818,7 @@ def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
             else:
                 parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {html.escape(c.code)} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
             parts.append(
-                f'<a href="/code/{html.escape(c.code)}?payer={html.escape(payer)}"><text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={r["n_rates"]} · {r["n_provider_groups"]} groups</text></a>'
+                f'<a href="/code/{html.escape(c.code)}?payer={html.escape(payer)}"><text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,} · {int(r["n_provider_groups"]):,} groups</text></a>'
             )
             parts.append("</g>")
             y += row_h
@@ -892,7 +895,7 @@ def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
     type medians and labels the gap; it is a difference of two typical
     rates, never a pooled figure.
     """
-    width, label_w, plot_w = 980, 190, 540
+    width, label_w, plot_w = 1120, 235, 505
     x0 = label_w
 
     def X(v: float) -> float:
@@ -924,7 +927,7 @@ def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
         else:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
-        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={r["n_rates"]}</text>')
+        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,}</text>')
         y += row_h
     for payer, types in by_payer.items():
         if "negotiated" in types and "fee schedule" in types:
