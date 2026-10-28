@@ -912,34 +912,46 @@ def _family_ladder(summary_rows: list[dict], xmax: float) -> str:
 
     One line per payer per rate type across the six family codes in
     config order. A missing code breaks the line: no segment is drawn
-    across a gap, and nothing is interpolated.
+    across a gap, and nothing is interpolated. The ladder carries its
+    own dollar scale, fitted to the family whiskers, so no line can
+    run off the top. Series labels sit in one column at the right,
+    spread apart so they never print over each other, with a thin
+    leader line back to the last point when a label had to move.
     """
-    width, height = 980, 320
-    left, right, top, bottom = 60, 250, 26, 46
+    width, height = 1120, 360
+    left, right, top, bottom = 60, 300, 30, 48
     plot_w = width - left - right
     plot_h = height - top - bottom
-
-    def X(i: int) -> float:
-        return left + (i / (len(_FAMILY) - 1)) * plot_w
-
-    def Y(v: float) -> float:
-        return top + plot_h - (v / xmax) * plot_h
 
     by_key: dict[tuple[str, str], dict[str, dict]] = {}
     for r in summary_rows:
         if str(r["billing_code"]) in _FAMILY:
             by_key.setdefault((str(r["payer"]), str(r["negotiated_type"])), {})[str(r["billing_code"])] = r
+    peak = max(
+        (float(r["p75"] or r["median"] or 0) for series in by_key.values() for r in series.values()),
+        default=0.0,
+    )
+    ymax = max(50.0, (int(peak / 25) + 1) * 25)
+
+    def X(i: int) -> float:
+        return left + (i / (len(_FAMILY) - 1)) * plot_w
+
+    def Y(v: float) -> float:
+        return top + plot_h - (min(v, ymax) / ymax) * plot_h
+
     parts = [
         f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
         'aria-label="Family ladder: median rate by interprofessional consult code, one line per payer and rate type, middle half whiskers, gaps where a payer publishes no rate">'
     ]
+    step = 25 if ymax <= 200 else 50
     tick = 0
-    while tick <= xmax:
+    while tick <= ymax:
         parts.append(f'<line x1="{left}" y1="{Y(tick):.0f}" x2="{left + plot_w}" y2="{Y(tick):.0f}" stroke="#E5E7EB"/>')
         parts.append(f'<text x="{left - 6}" y="{Y(tick) + 3:.0f}" font-size="10" fill="#374151" text-anchor="end">${tick:,.0f}</text>')
-        tick += 50
+        tick += step
     for i, code in enumerate(_FAMILY):
-        parts.append(f'<text x="{X(i):.0f}" y="{height - 22}" font-size="11" font-weight="700" text-anchor="middle">{code}</text>')
+        parts.append(f'<text x="{X(i):.0f}" y="{height - 24}" font-size="11" font-weight="700" text-anchor="middle">{code}</text>')
+    labels: list[dict] = []
     for (payer, rtype), series in sorted(by_key.items()):
         pts = [(i, series[c]) for i, c in enumerate(_FAMILY) if c in series]
         if not pts:
@@ -953,13 +965,38 @@ def _family_ladder(summary_rows: list[dict], xmax: float) -> str:
             med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
             parts.append(f'<line x1="{X(i):.1f}" y1="{Y(p75):.1f}" x2="{X(i):.1f}" y2="{Y(p25):.1f}" stroke="#111827" stroke-width="1.2"/>')
             if rtype == "negotiated":
-                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#111827"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, n={r["n_rates"]}</title></circle>')
+                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#111827"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
             else:
-                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, n={r["n_rates"]}</title></circle>')
+                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
+        parts.append("</g>")
         li, lr = pts[-1]
         total_n = sum(int(r["n_rates"]) for _, r in pts)
-        parts.append(f'<text x="{X(li) + 12:.1f}" y="{Y(float(lr["median"] or 0)) + 3:.1f}" font-size="10.5">{html.escape(payer)} · {html.escape(rtype)} · n={total_n}</text>')
-        parts.append("</g>")
+        labels.append(
+            {
+                "y": Y(float(lr["median"] or 0)),
+                "x_end": X(li),
+                "text": f"{payer} · {rtype} · n={total_n:,}",
+                "type": rtype,
+                "payer": payer,
+            }
+        )
+    label_x = left + plot_w + 16
+    labels.sort(key=lambda z: z["y"])
+    gap = 16.0
+    lo, hi = top + 6, top + plot_h - 6
+    for z in labels:
+        z["ly"] = min(max(z["y"], lo), hi)
+    for a, b in zip(labels, labels[1:]):
+        b["ly"] = max(b["ly"], a["ly"] + gap)
+    for a, b in zip(reversed(labels), reversed(labels[:-1])):
+        b["ly"] = min(b["ly"], a["ly"] - gap)
+    for z in labels:
+        if abs(z["ly"] - z["y"]) > 3 or z["x_end"] < X(len(_FAMILY) - 1) - 1:
+            parts.append(f'<line x1="{z["x_end"] + 5:.1f}" y1="{z["y"]:.1f}" x2="{label_x - 4:.1f}" y2="{z["ly"]:.1f}" stroke="#9CA3AF" stroke-width="1"/>')
+        parts.append(
+            f'<g class="lrow" data-type="{html.escape(z["type"])}" data-payer="{html.escape(z["payer"])}">'
+            f'<text x="{label_x:.1f}" y="{z["ly"] + 3:.1f}" font-size="10.5">{html.escape(z["text"])}</text></g>'
+        )
     parts.append("</svg>")
     return "".join(parts)
 
