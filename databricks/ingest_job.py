@@ -59,6 +59,9 @@ for _a in sys.argv[1:]:
         workers_arg = _a.split("=", 1)[1]
     elif _a.startswith("--group-cap="):
         group_cap_arg = _a.split("=", 1)[1]
+    elif _a.startswith("--smallest-first="):
+        smallest_arg = _a.split("=", 1)[1]
+smallest_first = str(globals().get("smallest_arg", "") or os.environ.get("OPENPAYER_SMALLEST_FIRST", "")).strip().lower() in ("1", "true", "yes")
 limit = int(limit_raw) if str(limit_raw).strip().isdigit() else None
 group_cap = int(group_cap_arg) if str(group_cap_arg).strip().isdigit() else 300
 
@@ -79,7 +82,7 @@ try:
     n_workers = max(1, int(workers_arg or "3"))
 except ValueError:
     n_workers = 3
-print(f"config: limit={limit} workers={n_workers} only={sorted(only) or 'all'}")
+print(f"config: limit={limit} workers={n_workers} only={sorted(only) or 'all'} smallest_first={smallest_first}")
 
 
 def _fresh_lakebase_dsn() -> None:
@@ -105,7 +108,16 @@ def _pull_file(job):
     """
     src, i, url = job
     slug = _re.sub(r"[^a-z0-9]+", "-", src.payer.lower()).strip("-")
-    fname = f"{slug}-{i:04d}.jsonl.gz"
+    if smallest_first:
+        # File identity from the URL, not list position: in this mode the
+        # list is reordered by size, so position names would corrupt the
+        # ledger. The URL guard below also skips anything an earlier
+        # index-ordered run already loaded under a position name.
+        import hashlib
+
+        fname = f"{slug}-{hashlib.sha1(url.encode()).hexdigest()[:10]}.jsonl.gz"
+    else:
+        fname = f"{slug}-{i:04d}.jsonl.gz"
     from openpayer import pg_store
 
     _fresh_lakebase_dsn()
@@ -113,6 +125,15 @@ def _pull_file(job):
     if done_rows is not None:
         print(f"SKIP (already pulled) {fname}: {done_rows} rows")
         return {"attempted": 1, "with_rows": 1 if done_rows else 0, "rows": done_rows, "failures": 0}
+    if smallest_first:
+        import psycopg as _pg_guard
+
+        _fresh_lakebase_dsn()
+        with _pg_guard.connect(pg_store.dsn()) as con:
+            already = con.execute("SELECT count(*) FROM rates WHERE source_url = %s", [url]).fetchone()[0]
+        if already:
+            print(f"SKIP (url already in rates) {fname}: {already} rows")
+            return {"attempted": 1, "with_rows": 1, "rows": already, "failures": 0}
     tmp = None
     try:
         if url.startswith(("http://", "https://")):
@@ -150,7 +171,8 @@ for src in load_sources():
     index_capped = False
     if src.toc_url:
         try:
-            entries, index_total, toc_date, index_capped = collect_toc(src.toc_url, limit=limit)
+            collect_limit = max(limit * 8, 24) if (smallest_first and limit) else limit
+            entries, index_total, toc_date, index_capped = collect_toc(src.toc_url, limit=collect_limit)
         except Exception as exc:
             print(f"- {src.payer}: index unreadable, skipped: {exc}")
             continue
@@ -159,6 +181,27 @@ for src in load_sources():
         print(f"- {src.payer}: taking {len(urls)} of {'at least ' if index_capped else ''}{files_in_index} files from index dated {toc_date}")
     elif limit:
         urls = urls[:limit]
+    if smallest_first and limit and len(urls) > limit:
+        # First-pass coverage, fastest first: size every candidate with a
+        # HEAD request and take the smallest. Giant national files parse
+        # for hours; small state books carry the same codes and land in
+        # minutes. Unknown sizes sort last, never first.
+        import httpx as _httpx
+
+        def _size(u):
+            try:
+                with _httpx.Client(follow_redirects=True, timeout=20) as cl:
+                    r = cl.head(u)
+                v = int(r.headers.get("content-length") or 0)
+                return v if v > 0 else float("inf")
+            except Exception:
+                return float("inf")
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            sizes = list(pool.map(_size, urls))
+        order = sorted(range(len(urls)), key=lambda i: sizes[i])
+        urls = [urls[i] for i in order[:limit]]
+        print(f"- {src.payer}: smallest-first chose {len(urls)} of {len(order)} candidates, sizes MB: {[round(s / 1e6, 1) if s != float('inf') else '?' for s in sorted(sizes)[:limit]]}")
     if not urls:
         print(f"- {src.payer}: no files, skipped")
         continue
