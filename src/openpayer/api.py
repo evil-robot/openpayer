@@ -6,7 +6,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
 from . import auth as authmod
-from .benchmarks import data_inventory, rates_for_code, summary_all_payers, summary_by_code_payer
+from .benchmarks import data_inventory, flags_input, rates_for_code, summary_all_payers, summary_by_code_payer
 from .config import load_codes
 from .store import DB_PATH
 
@@ -354,6 +354,7 @@ If an item says waiting, the code is ready and only configuration or data is mis
 <li><strong>This landing page:</strong> live status, the configured codes, and the benchmark table when data exists.</li>
 <li><strong>Code page</strong> at <code>/code/{code}</code>: a dot plot where each dot is one observed negotiated rate for one provider group (hover shows the dollar value), a dashed median line with min and max labeled, then a See the numbers table under it: payer, rate, provider, tax ID, and a source file link on every row. That link is the audit trail back to the payer file the rate came from.</li>
 <li><strong>JSON API:</strong> <code>/api/codes</code> (configured codes), <code>/api/summary</code> (benchmark table as JSON), <code>/api/rates/{code}</code> (individual rates, filterable by payer). Returns 404 with a plain reason when no data is pulled yet.</li>
+<li><strong>Flags for review:</strong> every rate is also measured against the Medicare fee schedule (CMS 2026 RVU file, national rate before geographic adjustment) and against peer payers. Patterns over the thresholds published in <code>flags.py</code> are listed on the landing page and at <code>/api/flags</code> with their counts. A flag is a review signal with its evidence attached, never a finding of fraud, waste, or abuse.</li>
 </ul>
 
 <h3>5. Quality and legal posture</h3>
@@ -369,7 +370,7 @@ If an item says waiting, the code is ready and only configuration or data is mis
 <li><strong>Real payer files arrive dirty, and the system now copes.</strong> The first live payer file tested (Cox HealthPlans, Sep 2026) is invalid JSON (trailing commas), puts provider names inside the tax ID block, and uses bare numbers for NPIs and tax IDs. The parser repairs trailing commas with a string-aware scan and normalizes all three before storing anything. Dirt that cannot be repaired fails that one file and is logged, never silently blended in.</li>
 <li><strong>Depth is whatever the sources table shows.</strong> Every payer row carries files searched out of files in its index, so a bounded first pass reads as a bounded first pass, never as the payer's whole book. Widen the code list to about 15 and add payer index addresses to grow it; no code changes needed.</li>
 <li><strong>Provider details and geography:</strong> NPPES (NPI registry) wiring is stubbed in <code>reference.py</code>. Provider practice city, state, ZIP, and specialty, and any map view, wait on that loader. It is designed to join only providers already in the pulled rates, so it stays small.</li>
-<li><strong>Percent of Medicare:</strong> Medicare fee schedule wiring is stubbed the same way. No percent-of-Medicare figure is shown until real fee schedule data is loaded. The system shows nothing rather than a placeholder number.</li>
+<li><strong>Locality-adjusted Medicare:</strong> percent-of-Medicare today uses the national rate from the CMS 2026 RVU file (every geographic adjustment factor at 1.0), filtered to the configured codes by <code>scripts/pull_mpfs.py</code>. Per-locality rulers from the GPCI file in the same CMS zip are the same wiring when a flag needs one.</li>
 <li><strong>Hospital files:</strong> only payer Transparency in Coverage in-network files are parsed today. Hospital MRFs use a different schema and are a later source type.</li>
 <li><strong>No automatic refresh yet:</strong> pulls are run by hand today. A scheduled quarterly refresh matches the new CMS cadence and is on the roadmap.</li>
 <li><strong>Out of scope by decision:</strong> contract upload and modeling, and claims repricing for short pays. Those need private contracts and remits. This system is rate search and benchmarks from public data only.</li>
@@ -476,6 +477,73 @@ def _corpus_meter(inv: dict, summary_rows: list[dict], n_codes: int) -> str:
     return "".join(parts)
 
 
+_FLAG_LABELS = {
+    "median_far_above_medicare": "Median far above Medicare",
+    "extreme_rates": "Rates at ten times Medicare or more",
+    "placeholder_rates": "Placeholder-priced rates",
+    "single_amount_many_groups": "One amount across many provider groups",
+    "code_not_published": "Code not published at all",
+}
+
+
+def _flag_evidence(f: dict) -> str:
+    e = f["evidence"]
+    k = f["kind"]
+    if k == "median_far_above_medicare":
+        return f"Median ${e['median_rate']:,.0f} is {e['median_percent_of_medicare']}% of Medicare across {e['n_negotiated']:,} negotiated rates"
+    if k == "extreme_rates":
+        return f"{e['n_at_or_above_10x_medicare']} of {e['n_negotiated']:,} negotiated rates sit at ten times Medicare or more; highest ${e['max_rate']:,.0f} ({e['max_percent_of_medicare']}%)"
+    if k == "placeholder_rates":
+        return f"{e['n_at_or_below_1_dollar']:,} of {e['n_rates']:,} rates are priced at $1.00 or less ({e['share'] * 100:.0f}%)"
+    if k == "single_amount_many_groups":
+        return f"One amount, ${e['amount']:,.2f}, covers {e['provider_groups_at_amount']:,} provider groups ({e['share'] * 100:.0f}% of this payer's rates for the code)"
+    if k == "code_not_published":
+        return f"Publishes no rates for this code; {e['payers_publishing_code']} other payers in the corpus do"
+    return ""
+
+
+def _flags_section() -> str:
+    """Fraud, waste, and abuse review flags, computed live from the corpus."""
+    from . import flags as _flags
+    from . import reference as _ref
+
+    computed = _flags.compute_flags(flags_input())
+    info = _ref.mpfs_info()
+    n_by_sev = {s: sum(1 for f in computed if f["severity"] == s) for s in ("high", "medium", "low")}
+    parts = [
+        "<h2>Flags for review: where the filed rates do not line up</h2>"
+        "<p>Every stored rate is measured two ways: against Medicare, and against the other payers in the corpus. "
+        f"The Medicare ruler is the CMS 2026 Physician Fee Schedule (file RVU26A), national rate before geographic adjustment, "
+        f"conversion factor ${info.get('conversion_factor')}. Patterns over the thresholds published at the top of "
+        "<code>flags.py</code> in the repo are listed here, with the counts that produced them. "
+        "Download: <a href='/api/flags'>flags JSON</a> · <a href='/api/flags.csv'>flags CSV</a>.</p>"
+        f"<p class='note'>{html.escape(_flags.FLAG_NOTE)}</p>"
+    ]
+    if not computed:
+        parts.append("<p>No patterns over the current thresholds in the data pulled so far.</p>")
+        return "".join(parts)
+    parts.append(
+        f"<p><strong>{len(computed)} flags: {n_by_sev['high']} high, {n_by_sev['medium']} medium, {n_by_sev['low']} low.</strong> "
+        "High flags are measured against Medicare. Medium and low flags are measured against peer payers or against the shape of the payer's own file.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Severity</th><th>Payer</th><th>Code</th><th>Signal</th><th>What we saw</th><th>Medicare rate</th></tr></thead><tbody>"
+    )
+    for f in computed:
+        med = f"${f['medicare_rate']:,.2f}" if f.get("medicare_rate") else "not loaded"
+        parts.append(
+            "<tr><td>{sev}</td><td>{payer}</td><td><a href='/code/{code}?payer={payer}'>{code}</a></td>"
+            "<td>{label}</td><td>{ev}</td><td class='n'>{med}</td></tr>".format(
+                sev=html.escape(f["severity"].capitalize()),
+                payer=html.escape(f["payer"]),
+                code=html.escape(f["billing_code"]),
+                label=html.escape(_FLAG_LABELS.get(f["kind"], f["kind"])),
+                ev=html.escape(_flag_evidence(f)),
+                med=med,
+            )
+        )
+    parts.append("</tbody></table></div>")
+    return "".join(parts)
+
+
 def _sources_section() -> str:
     from .benchmarks import sources_detail
 
@@ -538,7 +606,7 @@ def home(request: Request) -> str:
     payers = [p["payer"] for p in inv["by_payer"]] or sorted({str(r["payer"]) for r in rows})
     payer_phrase = payers[0] if len(payers) == 1 else f"{len(payers)} payers"
 
-    headline = "No estimates. Only rates we saw in the file."
+    headline = "Find the rates that do not belong."
     neg13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "negotiated"), None)
     fs13 = next((r for r in agg if r["billing_code"] == "99213" and r["negotiated_type"] == "fee schedule"), None)
     lead_row = neg13 or fs13
@@ -667,20 +735,21 @@ def home(request: Request) -> str:
     )
     how = f"<details><summary>How this works, and what it does not do yet</summary>{SYSTEM_DOES}</details>"
     lede = (
-        "<p class='lede'>OpenPayer reads payer transparency files for eight billing codes today, about fifteen planned, "
-        "and shows only rates we actually found in those files, each one linked to its source with its count beside it. "
-        "You get the filed rate, not a modelled guess you have to take on trust.</p>"
+        "<p class='lede'>OpenPayer reads the rate files payers must publish for eight billing codes, lines every rate up "
+        "against the Medicare fee schedule and against the other payers, and flags the patterns a fraud, waste, and abuse "
+        "reviewer should see first. Every flag carries its counts and the payer file behind it. "
+        "A flag is a reason to look. It is never a finding.</p>"
     )
     proof = (
         "<div class='proof'>"
         "<div><strong>Open source, Apache 2.0</strong>Anyone can run the whole chain and audit exactly how a number was produced.</div>"
         "<div><strong>Observed, not estimated</strong>Every rate is taken from a real payer filing, linked to that file, with its count shown. Rate types are never blended or interpolated.</div>"
-        "<div><strong>Narrow on purpose</strong>A short list of billing codes in full, every rate we can find for those codes, instead of spreading thin across every code.</div>"
+        "<div><strong>Flags, not verdicts</strong>Unusual patterns are listed as review flags with the evidence beside them. Filed rates are not claims, so nothing here accuses anyone. It tells a reviewer where to look first.</div>"
         "</div>"
     )
     return (
         f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
-        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{_corpus_meter(inv, rows, len(codes))}"
+        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{_corpus_meter(inv, rows, len(codes))}{_flags_section()}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
@@ -1362,6 +1431,32 @@ def api_aggregate():
     if not _has_data():
         return JSONResponse({"detail": "no data yet"}, status_code=404)
     return summary_all_payers()
+
+
+@app.get("/api/flags")
+def api_flags():
+    from . import flags as _flags
+
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    return _flags.compute_flags(flags_input())
+
+
+@app.get("/api/flags.csv")
+def api_flags_csv():
+    import json as _json
+
+    from . import flags as _flags
+
+    if not _has_data():
+        return JSONResponse({"detail": "no data yet"}, status_code=404)
+    computed = _flags.compute_flags(flags_input())
+    flat = [{**f, "evidence": _json.dumps(f["evidence"])} for f in computed]
+    return _csv_response(
+        flat,
+        ["severity", "payer", "billing_code", "kind", "medicare_rate", "evidence", "note"],
+        "openpayer-flags.csv",
+    )
 
 
 def _csv_response(rows: list[dict], cols: list[str], filename: str) -> PlainTextResponse:
