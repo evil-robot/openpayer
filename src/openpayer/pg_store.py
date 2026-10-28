@@ -54,10 +54,9 @@ def insert_rows(rows: list[dict], loaded_file: str) -> int:
     ]
     with _connect() as con:
         with con.cursor() as cur:
-            cur.executemany(
-                f"INSERT INTO rates ({','.join(cols)}, loaded_file) VALUES ({','.join(['%s'] * len(cols))}, %s)",
-                [tuple(r.get(c) for c in cols) + (loaded_file,) for r in rows],
-            )
+            with cur.copy(f"COPY rates ({','.join(cols)}, loaded_file) FROM STDIN") as cp:
+                for r in rows:
+                    cp.write_row(tuple(r.get(c) for c in cols) + (loaded_file,))
     return len(rows)
 
 

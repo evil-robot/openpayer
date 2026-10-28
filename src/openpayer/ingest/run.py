@@ -14,7 +14,7 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "file"
 
 
-def _pull_one(src: Source, index: int, url: str, allowed: set[str], out_dir: Path) -> tuple[str, int, str]:
+def _pull_one(src: Source, index: int, url: str, allowed: set[str], out_dir: Path, group_cap: int | None = 300) -> tuple[str, int, str]:
     tmp: Path | None = None
     local = url
     try:
@@ -23,7 +23,7 @@ def _pull_one(src: Source, index: int, url: str, allowed: set[str], out_dir: Pat
             tmp = download_to_temp(url, suffix=suffix)
             local = str(tmp)
         out = out_dir / f"{_slug(src.payer)}-{index:04d}.jsonl.gz"
-        n = write_jsonl(parse_mrf(local, allowed, payer=src.payer, source_url=url), out)
+        n = write_jsonl(parse_mrf(local, allowed, payer=src.payer, source_url=url, group_cap=group_cap), out)
         return (url, n, "")
     except Exception as exc:
         return (url, 0, str(exc))
@@ -32,7 +32,7 @@ def _pull_one(src: Source, index: int, url: str, allowed: set[str], out_dir: Pat
             tmp.unlink(missing_ok=True)
 
 
-def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4) -> int:
+def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4, group_cap: int | None = 300) -> int:
     codes = load_codes()
     allowed = code_set(codes)
     if not allowed:
@@ -80,7 +80,7 @@ def pull(dry_run: bool = False, limit: int | None = None, workers: int = 4) -> i
     stats: dict[str, dict] = defaultdict(lambda: {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0})
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         for (src, _i, url), (_u, n, err) in zip(
-            jobs, pool.map(lambda j: _pull_one(j[0], j[1], j[2], allowed, out_dir), jobs), strict=True
+            jobs, pool.map(lambda j: _pull_one(j[0], j[1], j[2], allowed, out_dir, group_cap), jobs), strict=True
         ):
             s = stats[src.payer]
             s["files_attempted"] += 1
@@ -126,12 +126,16 @@ def main() -> None:
     dry = "--dry-run" in args
     limit = None
     workers = 4
+    group_cap: int | None = 300
     for a in args:
         if a.startswith("--limit="):
             limit = int(a.split("=", 1)[1])
         if a.startswith("--workers="):
             workers = int(a.split("=", 1)[1])
-    raise SystemExit(pull(dry_run=dry, limit=limit, workers=workers))
+        if a.startswith("--group-cap="):
+            raw = a.split("=", 1)[1]
+            group_cap = int(raw) if raw.isdigit() else None
+    raise SystemExit(pull(dry_run=dry, limit=limit, workers=workers, group_cap=group_cap))
 
 
 if __name__ == "__main__":

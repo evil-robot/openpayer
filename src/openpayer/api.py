@@ -408,7 +408,9 @@ def _sources_section() -> str:
         + "".join(rows)
         + "</table></div>"
         "<p class='note'>Not configured yet means the slot exists in config/sources.json and waits for that payer's index address. "
-        "It is a to-do shown on purpose, not missing data pretending to be a result.</p>"
+        "It is a to-do shown on purpose, not missing data pretending to be a result. "
+        "One national file can name over 100,000 provider groups and hold millions of rows for our codes alone, so from any file that names more than 2,000 groups "
+        "we keep the rates of about 300 provider groups, chosen the same way in every file by tax ID. Benchmarks rest on those kept groups, and the counts beside them say so.</p>"
     )
 
 

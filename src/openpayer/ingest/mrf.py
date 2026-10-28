@@ -81,7 +81,27 @@ def _sanitized_copy(path: str) -> Path:
     return Path(tmp.name)
 
 
-def _provider_index(path: str) -> dict[str, list[dict]]:
+def _group_key(group: dict) -> str:
+    """Stable identity for a provider group: tax ID, else first NPI, else name."""
+    import hashlib
+
+    raw = group.get("tin") or (group["npi"][0] if group.get("npi") else "") or group.get("name", "")
+    return hashlib.sha1(str(raw).encode()).hexdigest()
+
+
+def _provider_index(
+    path: str, group_cap: int | None = None, group_threshold: int = 2000
+) -> tuple[dict[str, list[dict]], set[str] | None]:
+    """Index provider groups by reference ID.
+
+    Returns (index, kept_keys). When a file names more than
+    `group_threshold` groups and `group_cap` is set, only the `group_cap`
+    groups with the lowest stable identity hashes are kept, and kept_keys
+    holds their identity hashes so rates citing providers inline (not by
+    reference) can be filtered by the same rule. The same providers are
+    chosen in every file from the same payer, because the hash is over
+    the tax ID, not the file. kept_keys is None when no cap applied.
+    """
     index: dict[str, list[dict]] = {}
     stream = open_local(path)
     try:
@@ -105,10 +125,22 @@ def _provider_index(path: str) -> dict[str, list[dict]]:
         pass
     finally:
         stream.close()
-    return index
+    if not group_cap or len(index) <= group_threshold:
+        return index, None
+    ranked = sorted(index.items(), key=lambda kv: min((_group_key(g) for g in kv[1]), default=""))
+    kept = dict(ranked[:group_cap])
+    kept_keys = {_group_key(g) for groups in kept.values() for g in groups}
+    return kept, kept_keys
 
 
-def parse_mrf(path: str, allowed: set[str], payer: str = "", source_url: str = "") -> Iterator[dict]:
+def parse_mrf(
+    path: str,
+    allowed: set[str],
+    payer: str = "",
+    source_url: str = "",
+    group_cap: int | None = 300,
+    group_threshold: int = 2000,
+) -> Iterator[dict]:
     """Yield one row per negotiated price x provider group, allowlisted codes only.
 
     `path` must be a local file. Remote files are downloaded to a temp file by
@@ -124,7 +156,7 @@ def parse_mrf(path: str, allowed: set[str], payer: str = "", source_url: str = "
         # the parse itself). Rows are materialized before anything is
         # yielded, so a file that turns out dirty fails atomically here
         # and never emits partial rows.
-        yield from list(_parse_clean(path, allowed, payer, source_url))
+        yield from list(_parse_clean(path, allowed, payer, source_url, group_cap, group_threshold))
         return
     except Exception:
         pass
@@ -132,13 +164,20 @@ def parse_mrf(path: str, allowed: set[str], payer: str = "", source_url: str = "
     # copy and parse that instead. A failure here is real and propagates.
     clean = _sanitized_copy(path)
     try:
-        yield from _parse_clean(str(clean), allowed, payer, source_url)
+        yield from _parse_clean(str(clean), allowed, payer, source_url, group_cap, group_threshold)
     finally:
         clean.unlink(missing_ok=True)
 
 
-def _parse_clean(path: str, allowed: set[str], payer: str, source_url: str) -> Iterator[dict]:
-    providers = _provider_index(path)
+def _parse_clean(
+    path: str,
+    allowed: set[str],
+    payer: str,
+    source_url: str,
+    group_cap: int | None = 300,
+    group_threshold: int = 2000,
+) -> Iterator[dict]:
+    providers, kept_keys = _provider_index(path, group_cap=group_cap, group_threshold=group_threshold)
     stream = open_local(path)
     try:
         for item in ijson.items(stream, "in_network.item", use_float=True):
@@ -153,18 +192,24 @@ def _parse_clean(path: str, allowed: set[str], payer: str, source_url: str) -> I
                         groups.extend(providers[key])
                     elif len(key) == 10 and key.isdigit():
                         # Some payers cite an NPI directly instead of a defined group.
-                        groups.append({"name": "", "tin_type": "", "tin": "", "npi": [key]})
+                        bare = {"name": "", "tin_type": "", "tin": "", "npi": [key]}
+                        if kept_keys is None or _group_key(bare) in kept_keys:
+                            groups.append(bare)
                 for g in rate.get("provider_groups", []) or []:
                     tin = g.get("tin") or {}
-                    groups.append(
-                        {
-                            "name": g.get("name") or tin.get("business_name") or "",
-                            "tin_type": tin.get("type", ""),
-                            "tin": _num_str(tin.get("value", "")),
-                            "npi": [_num_str(n) for n in (g.get("npi") or [])],
-                        }
-                    )
+                    inline = {
+                        "name": g.get("name") or tin.get("business_name") or "",
+                        "tin_type": tin.get("type", ""),
+                        "tin": _num_str(tin.get("value", "")),
+                        "npi": [_num_str(n) for n in (g.get("npi") or [])],
+                    }
+                    if kept_keys is None or _group_key(inline) in kept_keys:
+                        groups.append(inline)
                 if not groups:
+                    if kept_keys is not None:
+                        # Cap active and every cited provider fell outside
+                        # the kept sample: this rate is not ours to store.
+                        continue
                     groups = [{"name": "", "tin_type": "", "tin": "", "npi": []}]
                 for price in rate.get("negotiated_prices", []) or []:
                     for g in groups:

@@ -42,6 +42,7 @@ print(f"argv: {sys.argv}")
 limit_raw = os.environ.get("OPENPAYER_LIMIT", "")
 only_arg = os.environ.get("OPENPAYER_ONLY", "")
 workers_arg = os.environ.get("OPENPAYER_WORKERS", "")
+group_cap_arg = os.environ.get("OPENPAYER_GROUP_CAP", "")
 for _a in sys.argv[1:]:
     if _a.isdigit():
         limit_raw = _a
@@ -51,7 +52,10 @@ for _a in sys.argv[1:]:
         only_arg = _a.split("=", 1)[1]
     elif _a.startswith("--workers="):
         workers_arg = _a.split("=", 1)[1]
+    elif _a.startswith("--group-cap="):
+        group_cap_arg = _a.split("=", 1)[1]
 limit = int(limit_raw) if str(limit_raw).strip().isdigit() else None
+group_cap = int(group_cap_arg) if str(group_cap_arg).strip().isdigit() else 300
 
 codes = load_codes()
 allowed = code_set(codes)
@@ -85,7 +89,7 @@ def _pull_file(job):
             local = str(tmp)
         else:
             local = url
-        rows = list(parse_mrf(local, allowed, payer=src.payer, source_url=url))
+        rows = list(parse_mrf(local, allowed, payer=src.payer, source_url=url, group_cap=group_cap))
         kept = 0
         if rows:
             import psycopg

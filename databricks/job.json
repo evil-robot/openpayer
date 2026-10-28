@@ -17,7 +17,7 @@
       "spark_python_task": {
         "python_file": "databricks/ingest_job.py",
         "source": "GIT",
-        "parameters": ["--limit={{job.parameters.limit}}", "--only={{job.parameters.only}}", "--workers={{job.parameters.workers}}"]
+        "parameters": ["--limit={{job.parameters.limit}}", "--only={{job.parameters.only}}", "--workers={{job.parameters.workers}}", "--group-cap={{job.parameters.group_cap}}"]
       },
       "environment_key": "Default",
       "timeout_seconds": 14400
@@ -26,7 +26,8 @@
   "parameters": [
     { "name": "limit", "default": "" },
     { "name": "only", "default": "" },
-    { "name": "workers", "default": "3" }
+    { "name": "workers", "default": "3" },
+    { "name": "group_cap", "default": "300" }
   ],
   "format": "MULTI_TASK"
 }
