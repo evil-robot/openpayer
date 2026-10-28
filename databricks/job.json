@@ -28,7 +28,7 @@
     { "name": "only", "default": "" },
     { "name": "workers", "default": "1" },
     { "name": "group_cap", "default": "300" },
-    { "name": "smallest_first", "default": "" }
+    { "name": "smallest_first", "default": "1" }
   ],
   "schedule": {
     "quartz_cron_expression": "0 0 11 1 * ?",

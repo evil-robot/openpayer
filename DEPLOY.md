@@ -84,7 +84,15 @@ Lakebase, the compute is Databricks.
 
 The job is scheduled monthly (1st of month, 11:00 UTC, one run at a
 time, failure email to jas@medtruth.care) with defaults `limit=60`
-files per payer, `workers=1`, `group_cap=300`. The per-file ledger
+files per payer, `workers=1`, `group_cap=300`, `smallest_first=1`
+(each payer's smallest waiting files go first, so a monthly run
+always lands something in minutes rather than opening with a
+15 GB national book). One exception this creates: Elevance's
+smallest files hold almost none of the tracked codes (a 60-file
+tranche added 2 rows), because its coverage lives in its giant
+books. Elevance depth therefore stays a manual, index-order run
+(`smallest_first` blank) launched deliberately, while the schedule
+keeps UnitedHealthcare and Cigna widening. The per-file ledger
 (`pulled_files`) makes every run a continuation: files already pulled
 are skipped, so each month every payer advances up to 60 more files
 inside whatever index `config/sources.json` points at. Manual runs
