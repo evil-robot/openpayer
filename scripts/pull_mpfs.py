@@ -14,7 +14,7 @@ which is the fee schedule amount before geographic adjustment
 GPCI file in the same zip if a flag ever needs them.
 
 Run: uv run python scripts/pull_mpfs.py
-Writes: data/reference/mpfs.json
+Writes: src/openpayer/data/reference/mpfs.json
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def main() -> None:
         "conversion_factor": parsed["conversion_factor"],
         "codes": parsed["codes"],
     }
-    target = ROOT / "data" / "reference" / "mpfs.json"
+    target = ROOT / "src" / "openpayer" / "data" / "reference" / "mpfs.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2) + "\n")
     for code, v in payload["codes"].items():

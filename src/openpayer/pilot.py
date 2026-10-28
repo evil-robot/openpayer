@@ -18,7 +18,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-_DATA = Path(__file__).resolve().parents[2] / "data" / "demo" / "sample.json"
+_DATA = Path(__file__).resolve().parent / "data" / "demo" / "sample.json"
 
 FLAG_TYPES = {
     "duplicative_billing": "Duplicative billing",

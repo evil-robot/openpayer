@@ -14,7 +14,7 @@ Without --npis, NPIs are read from the local DuckDB store
 (data/rates.duckdb). In production the same list comes out of
 Lakebase with one SELECT DISTINCT; export it and pass the file.
 
-Writes: data/reference/nppes.json
+Writes: src/openpayer/data/reference/nppes.json
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def main() -> None:
         "npis_matched": len(found),
         "npis": found,
     }
-    target = ROOT / "data" / "reference" / "nppes.json"
+    target = ROOT / "src" / "openpayer" / "data" / "reference" / "nppes.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=1) + "\n")
     print(f"matched {len(found)} of {len(wanted)}; wrote {target} ({target.stat().st_size / 1e6:.2f} MB)")

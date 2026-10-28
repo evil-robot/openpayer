@@ -7,11 +7,11 @@ from __future__ import annotations
    but we only join NPIs that appear in the filtered rates, so the join stays
    small. Source: https://download.cms.gov/nppes/NPI_Files.html
    Loaded: scripts/pull_nppes.py filters the monthly dissemination file
-   to NPIs appearing in pulled rates and writes data/reference/nppes.json.
+   to NPIs appearing in pulled rates and writes src/openpayer/data/reference/nppes.json.
 
 2. Medicare Physician Fee Schedule (MPFS): loaded. CMS publishes the
    Relative Value File (RVU26A, January 2026 release); scripts/pull_mpfs.py
-   filters it to the configured codes and writes data/reference/mpfs.json
+   filters it to the configured codes and writes src/openpayer/data/reference/mpfs.json
    with dollar figures only (no AMA descriptions). The rate stored is the
    national amount before geographic adjustment: total non-facility RVU
    times the conversion factor printed in the same file.
@@ -21,10 +21,10 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-_MPFS_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "mpfs.json"
+_MPFS_PATH = Path(__file__).resolve().parent / "data" / "reference" / "mpfs.json"
 
 
-_NPPES_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "nppes.json"
+_NPPES_PATH = Path(__file__).resolve().parent / "data" / "reference" / "nppes.json"
 
 
 @lru_cache(maxsize=1)
