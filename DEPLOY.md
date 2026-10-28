@@ -72,3 +72,35 @@ is covered by `tests/test_auth.py` (10 tests total in the suite).
 Remove the custom domain or delete the service. The MedTruth site
 itself is untouched by this deploy; OpenPayer is a separate service
 that only shares the sign-in pattern and the domain rule.
+
+## Running unattended (no laptop in the loop)
+
+The data pulls run as Databricks Job `openpayer-ingest` (workspace
+`adb-7405614656617207.7.azuredatabricks.net`, job id
+`525519863957852`), executing from this repo's `main` branch on
+serverless compute and writing to Lakebase. Nothing in the pull path
+lives on a workstation: the site is on Railway, the data is in
+Lakebase, the compute is Databricks.
+
+The job is scheduled monthly (1st of month, 11:00 UTC, one run at a
+time, failure email to jas@medtruth.care) with defaults `limit=60`
+files per payer, `workers=1`, `group_cap=300`. The per-file ledger
+(`pulled_files`) makes every run a continuation: files already pulled
+are skipped, so each month every payer advances up to 60 more files
+inside whatever index `config/sources.json` points at. Manual runs
+can override parameters per run (`only`, `limit`, `workers`,
+`smallest_first`) without touching the schedule.
+
+The one recurring human task is index freshness. Every source
+address in `config/sources.json` is month-dated (for example
+`2026-10-01_anthem_index.json.gz`). The scheduled run keeps working
+through the current indexes for months (thousands of unpulled files
+sit inside them), but picking up a payer's newly published index
+means updating that payer's dated address on `main`. Until then the
+site honestly ages: the corpus meter shows each index date and the
+pulled date, and the freshness line turns past-due after a quarter.
+
+Known gaps: Cigna's index holds about 101,000 files and grows only
+in these bounded tranches. Humana has no source configured; no
+readable current index has been found for it, so it contributes
+nothing until that hunt succeeds.

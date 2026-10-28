@@ -24,11 +24,21 @@
     }
   ],
   "parameters": [
-    { "name": "limit", "default": "" },
+    { "name": "limit", "default": "60" },
     { "name": "only", "default": "" },
-    { "name": "workers", "default": "3" },
+    { "name": "workers", "default": "1" },
     { "name": "group_cap", "default": "300" },
     { "name": "smallest_first", "default": "" }
   ],
+  "schedule": {
+    "quartz_cron_expression": "0 0 11 1 * ?",
+    "timezone_id": "UTC",
+    "pause_status": "UNPAUSED"
+  },
+  "max_concurrent_runs": 1,
+  "email_notifications": {
+    "on_failure": ["jas@medtruth.care"],
+    "no_alert_for_skipped_runs": true
+  },
   "format": "MULTI_TASK"
 }
