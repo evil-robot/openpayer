@@ -20,7 +20,7 @@
         "parameters": ["--limit={{job.parameters.limit}}", "--only={{job.parameters.only}}", "--workers={{job.parameters.workers}}", "--group-cap={{job.parameters.group_cap}}"]
       },
       "environment_key": "Default",
-      "timeout_seconds": 14400
+      "timeout_seconds": 0
     }
   ],
   "parameters": [

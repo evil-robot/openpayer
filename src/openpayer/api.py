@@ -395,7 +395,10 @@ def _sources_section() -> str:
                 payer=html.escape(str(d["payer"])), stype=html.escape(str(d["source_type"])), idx=idx_link,
                 idate=html.escape(str(d["index_last_updated_on"] or "not recorded")),
                 pulled=html.escape(str((d["pulled_at"] or "never")[:10])),
-                files=(f"{d['files_attempted']} of {d['files_in_index']} in index" if d["files_attempted"] is not None else "none"),
+                files=(
+                    (f"{d['files_attempted']} of at least {d['files_in_index']:,} in index (count capped)" if d.get("index_count_capped")
+                     else f"{d['files_attempted']} of {d['files_in_index']} in index") if d["files_attempted"] is not None else "none"
+                ),
                 kept=(d["rows_kept"] if d["rows_kept"] is not None else 0), cls=cls, verdict=html.escape(verdict),
             )
         )
@@ -523,7 +526,9 @@ def home(request: Request) -> str:
         sub = [r for r in rows if str(r["payer"]) == payer]
         sub_by_code = {c.code: [r for r in all_rows_by_code.get(c.code, []) if str(r["payer"]) == payer] for c in codes}
         searched = (
-            f"{d.get('files_attempted')} of {d.get('files_in_index')} files in its index searched, {d.get('files_with_rows')} held rates for our codes"
+            (f"{d.get('files_attempted')} of at least {d.get('files_in_index'):,} files in its index searched (index count capped), {d.get('files_with_rows')} held rates for our codes"
+             if d.get("index_count_capped") else
+             f"{d.get('files_attempted')} of {d.get('files_in_index')} files in its index searched, {d.get('files_with_rows')} held rates for our codes")
             if d.get("files_attempted") is not None else "not pulled yet"
         )
         line = (

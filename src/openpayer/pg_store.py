@@ -19,12 +19,18 @@ CREATE TABLE IF NOT EXISTS rates (
 );
 CREATE INDEX IF NOT EXISTS rates_code_idx ON rates (billing_code);
 CREATE INDEX IF NOT EXISTS rates_payer_idx ON rates (payer);
-CREATE INDEX IF NOT EXISTS rates_npi_idx ON rates (npi);
 CREATE TABLE IF NOT EXISTS source_status (
   payer TEXT PRIMARY KEY, source_type TEXT, index_url TEXT,
   index_last_updated_on TEXT, files_in_index INTEGER,
   files_attempted INTEGER, files_with_rows INTEGER, rows_kept INTEGER,
   failures INTEGER, pulled_at TEXT
+);
+ALTER TABLE source_status ADD COLUMN IF NOT EXISTS index_count_capped BOOLEAN DEFAULT FALSE;
+-- The npi column holds comma-joined NPI lists, which overflow the btree
+-- row-size limit and fail whole file loads; no query filters on it.
+DROP INDEX IF EXISTS rates_npi_idx;
+CREATE TABLE IF NOT EXISTS pulled_files (
+  loaded_file TEXT PRIMARY KEY, payer TEXT, rows_kept INTEGER, pulled_at TEXT
 );
 """
 
@@ -124,10 +130,38 @@ def rates_for_code(code: str, payer: str | None = None, limit: int = 500) -> lis
         return con.execute(sql, params).fetchall()
 
 
+def file_rows_kept(loaded_file: str) -> int | None:
+    """Rows kept for a finished file, or None if it was never pulled."""
+    with _connect() as con:
+        row = con.execute("SELECT rows_kept FROM pulled_files WHERE loaded_file = %s", [loaded_file]).fetchone()
+    return None if row is None else row[0]
+
+
+def mark_file(loaded_file: str, payer: str, rows_kept: int) -> None:
+    from datetime import datetime, timezone
+
+    with _connect() as con:
+        con.execute(
+            "INSERT INTO pulled_files (loaded_file, payer, rows_kept, pulled_at) VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (loaded_file) DO UPDATE SET rows_kept = EXCLUDED.rows_kept, pulled_at = EXCLUDED.pulled_at",
+            [loaded_file, payer, rows_kept, datetime.now(timezone.utc).isoformat(timespec="seconds")],
+        )
+
+
+def payer_code_groups(payer: str) -> dict[str, int]:
+    """Distinct provider groups (by tax ID) kept per billing code for a payer."""
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT billing_code, count(DISTINCT NULLIF(tin, '')) FROM rates WHERE payer = %s GROUP BY billing_code",
+            [payer],
+        ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
 def upsert_source_status(rows: list[dict]) -> int:
     cols = [
         "payer", "source_type", "index_url", "index_last_updated_on", "files_in_index",
-        "files_attempted", "files_with_rows", "rows_kept", "failures", "pulled_at",
+        "files_attempted", "files_with_rows", "rows_kept", "failures", "pulled_at", "index_count_capped",
     ]
     with _connect() as con:
         with con.cursor() as cur:
@@ -136,7 +170,8 @@ def upsert_source_status(rows: list[dict]) -> int:
                 "ON CONFLICT (payer) DO UPDATE SET source_type=EXCLUDED.source_type, index_url=EXCLUDED.index_url, "
                 "index_last_updated_on=EXCLUDED.index_last_updated_on, files_in_index=EXCLUDED.files_in_index, "
                 "files_attempted=EXCLUDED.files_attempted, files_with_rows=EXCLUDED.files_with_rows, "
-                "rows_kept=EXCLUDED.rows_kept, failures=EXCLUDED.failures, pulled_at=EXCLUDED.pulled_at",
+                "rows_kept=EXCLUDED.rows_kept, failures=EXCLUDED.failures, pulled_at=EXCLUDED.pulled_at, "
+                "index_count_capped=EXCLUDED.index_count_capped",
                 [tuple(r.get(c) for c in cols) for r in rows],
             )
     return len(rows)

@@ -12,6 +12,16 @@ import ijson
 from .mrf import open_local
 
 
+def suffix_for(url: str) -> str:
+    """Temp-file suffix matching the payload format at a URL."""
+    clean = url.split("?")[0].lower()
+    if clean.endswith(".zip"):
+        return ".zip"
+    if clean.endswith(".gz"):
+        return ".json.gz"
+    return ".json"
+
+
 def download_to_temp(url: str, suffix: str = ".json.gz", max_resumes: int = 10) -> Path:
     """Stream a remote MRF to a temp file. Caller deletes it. One file at a time.
 
@@ -128,29 +138,38 @@ def iter_toc_file_dicts(local_path: str) -> Iterator[dict]:
         stream.close()
 
 
-def collect_toc(source: str, limit: int | None = None) -> tuple[list[dict], int, str]:
+def collect_toc(
+    source: str, limit: int | None = None, count_cap: int = 250_000
+) -> tuple[list[dict], int, str, bool]:
     """One streaming pass over a TOC (URL or local path).
 
-    Returns (entries up to limit, total files in the index, index date).
-    The whole index is counted even when only the first `limit` entries
-    are kept, so coverage on the site compares pulled files against the
-    true size of the payer's index, never against the sample.
+    Returns (entries up to limit, files counted, index date, capped).
+    The index is counted in the same pass that harvests entries, so
+    coverage on the site compares pulled files against the size of the
+    payer's index, never against the sample. Counting stops at
+    `count_cap` entries (capped=True): Elevance's index holds about
+    43 million files, and counting them all burns hours to produce a
+    number whose only job is context. A capped count is a floor, and
+    the site says "at least" wherever it appears.
     """
     tmp: Path | None = None
     local = source
     try:
         if source.startswith(("http://", "https://")):
-            suffix = ".json.gz" if source.split("?")[0].endswith(".gz") else ".json"
-            tmp = download_to_temp(source, suffix=suffix)
+            tmp = download_to_temp(source, suffix=suffix_for(source))
             local = str(tmp)
         date, _name = toc_meta(local)
         kept: list[dict] = []
         total = 0
+        capped = False
         for entry in iter_toc_file_dicts(local):
             total += 1
             if limit is None or len(kept) < limit:
                 kept.append(entry)
-        return kept, total, date
+            if total >= count_cap:
+                capped = True
+                break
+        return kept, total, date, capped
     finally:
         if tmp is not None:
             tmp.unlink(missing_ok=True)

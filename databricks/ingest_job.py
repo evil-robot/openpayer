@@ -19,7 +19,7 @@ else:
 from databricks.sdk import WorkspaceClient  # noqa: E402
 
 from openpayer.config import code_set, load_codes, load_sources  # noqa: E402
-from openpayer.ingest.discover import collect_toc, download_to_temp  # noqa: E402
+from openpayer.ingest.discover import collect_toc, download_to_temp, suffix_for  # noqa: E402
 from openpayer.ingest.mrf import parse_mrf, write_jsonl  # noqa: E402
 from openpayer.pg_store import ensure_schema, insert_rows  # noqa: E402
 import tempfile  # noqa: E402
@@ -96,14 +96,27 @@ def _fresh_lakebase_dsn() -> None:
 
 
 def _pull_file(job):
-    """Download, filter to the allowlist, and load one MRF. Returns stats."""
+    """Download, filter to the allowlist, and load one MRF. Returns stats.
+
+    Files already in the pulled_files ledger are counted from the ledger
+    and skipped, so a rerun after a timeout resumes instead of starting
+    over. The ledger is written only after the rows are in, which makes
+    the rates table itself the receipt for the pull.
+    """
     src, i, url = job
     slug = _re.sub(r"[^a-z0-9]+", "-", src.payer.lower()).strip("-")
     fname = f"{slug}-{i:04d}.jsonl.gz"
+    from openpayer import pg_store
+
+    _fresh_lakebase_dsn()
+    done_rows = pg_store.file_rows_kept(fname)
+    if done_rows is not None:
+        print(f"SKIP (already pulled) {fname}: {done_rows} rows")
+        return {"attempted": 1, "with_rows": 1 if done_rows else 0, "rows": done_rows, "failures": 0}
     tmp = None
     try:
         if url.startswith(("http://", "https://")):
-            tmp = download_to_temp(url, suffix=".json.gz" if url.split("?")[0].endswith(".gz") else ".json")
+            tmp = download_to_temp(url, suffix=suffix_for(url))
             local = str(tmp)
         else:
             local = url
@@ -112,12 +125,12 @@ def _pull_file(job):
         if rows:
             import psycopg
 
-            from openpayer import pg_store
-
             _fresh_lakebase_dsn()
             with psycopg.connect(pg_store.dsn()) as con:
                 con.execute("DELETE FROM rates WHERE loaded_file = %s", [fname])
             kept = insert_rows(rows, fname)
+        pg_store.mark_file(fname, src.payer, kept)
+        print(f"KEPT {kept} rows <- {fname}")
         return {"attempted": 1, "with_rows": 1 if kept else 0, "rows": kept, "failures": 0}
     except Exception as exc:
         print(f"FAILED {url}: {exc}")
@@ -134,15 +147,16 @@ for src in load_sources():
     urls = list(src.direct_mrf_urls)
     toc_date = ""
     files_in_index = len(urls)
+    index_capped = False
     if src.toc_url:
         try:
-            entries, index_total, toc_date = collect_toc(src.toc_url, limit=limit)
+            entries, index_total, toc_date, index_capped = collect_toc(src.toc_url, limit=limit)
         except Exception as exc:
             print(f"- {src.payer}: index unreadable, skipped: {exc}")
             continue
         files_in_index = index_total
         urls.extend(f["location"] for f in entries)
-        print(f"- {src.payer}: taking {len(urls)} of {files_in_index} files from index dated {toc_date}")
+        print(f"- {src.payer}: taking {len(urls)} of {'at least ' if index_capped else ''}{files_in_index} files from index dated {toc_date}")
     elif limit:
         urls = urls[:limit]
     if not urls:
@@ -150,12 +164,27 @@ for src in load_sources():
         continue
     stats = {"files_attempted": 0, "files_with_rows": 0, "rows_kept": 0, "failures": 0}
     jobs = [(src, i, url) for i, url in enumerate(urls)]
-    with ThreadPoolExecutor(max_workers=n_workers) as pool:
-        for r in pool.map(_pull_file, jobs):
-            stats["files_attempted"] += r["attempted"]
-            stats["files_with_rows"] += r["with_rows"]
-            stats["rows_kept"] += r["rows"]
-            stats["failures"] += r["failures"]
+    from openpayer import pg_store as _pg
+
+    stop_at = 150  # provider groups per code: enough for a stable median
+    for start in range(0, len(jobs), max(1, n_workers)):
+        chunk = jobs[start : start + max(1, n_workers)]
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            for r in pool.map(_pull_file, chunk):
+                stats["files_attempted"] += r["attempted"]
+                stats["files_with_rows"] += r["with_rows"]
+                stats["rows_kept"] += r["rows"]
+                stats["failures"] += r["failures"]
+        _fresh_lakebase_dsn()
+        try:
+            groups = _pg.payer_code_groups(src.payer)
+        except Exception:
+            groups = {}
+        thin = [c for c in sorted(allowed) if groups.get(c, 0) < stop_at]
+        print(f"- {src.payer}: after {stats['files_attempted']} files, groups per code {groups}; still thin: {thin}")
+        if not thin:
+            print(f"- {src.payer}: coverage stop reached ({stop_at}+ groups for every code)")
+            break
     total += stats["rows_kept"]
     print(f"- {src.payer}: {stats}")
     upsert_source_status(
@@ -166,6 +195,7 @@ for src in load_sources():
                 "index_url": src.toc_url,
                 "index_last_updated_on": toc_date,
                 "files_in_index": files_in_index,
+                "index_count_capped": index_capped,
                 "pulled_at": _dt.now(_tz.utc).isoformat(timespec="seconds"),
                 **stats,
             }

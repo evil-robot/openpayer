@@ -149,6 +149,7 @@ def sources_detail() -> list[dict]:
                 "index_url": src.toc_url,
                 "index_last_updated_on": rec.get("index_last_updated_on", ""),
                 "files_in_index": rec.get("files_in_index"),
+                "index_count_capped": bool(rec.get("index_count_capped")),
                 "files_attempted": rec.get("files_attempted"),
                 "files_with_rows": rec.get("files_with_rows"),
                 "rows_kept": rec.get("rows_kept"),

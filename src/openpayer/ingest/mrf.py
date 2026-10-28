@@ -10,9 +10,28 @@ import ijson
 
 
 def open_local(source: str):
-    """Open a local MRF (.json or .json.gz) as a seekable binary stream."""
+    """Open a local MRF (.json, .json.gz, or .zip) as a binary stream.
+
+    ZIP support exists because some Cigna partners serve the rate file
+    as a .zip holding one JSON (sometimes itself gzipped). The largest
+    member is the rate file; read me files and manifests ride along in
+    some archives and are never the biggest thing in them.
+    """
+    clean = source.split("?")[0]
+    if clean.endswith(".zip"):
+        import zipfile
+
+        zf = zipfile.ZipFile(source)
+        members = [i for i in zf.infolist() if not i.is_dir()]
+        if not members:
+            raise ValueError(f"empty zip archive: {source}")
+        info = max(members, key=lambda i: i.file_size)
+        stream = zf.open(info)
+        if info.filename.endswith(".gz"):
+            return gzip.GzipFile(fileobj=stream)
+        return stream
     raw = io.BufferedReader(io.FileIO(source, "rb"))
-    if source.split("?")[0].endswith(".gz"):
+    if clean.endswith(".gz"):
         return gzip.GzipFile(fileobj=raw)
     return raw
 
