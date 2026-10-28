@@ -15,6 +15,10 @@ from .store import DB_PATH
 
 app = FastAPI(title="OpenPayer", description="Rate search and benchmarks from CMS price transparency files")
 
+from starlette.middleware.gzip import GZipMiddleware
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 PUBLIC_PATHS = {"/health", "/sign-in", "/confirm", "/auth/verify", "/og.png", "/assets/medtruth-lockup.svg", "/favicon.svg"}
 
 OG_TITLE = "OpenPayer: what payers actually reimburse"
@@ -226,13 +230,18 @@ tbody tr:nth-child(even){background:var(--st-gray-50)}
 details{border:1px solid var(--rule);border-radius:8px;padding:.8rem 1rem;margin:1rem 0;background:#fff}
 details summary{cursor:pointer;font-weight:600}
 .dot{cursor:pointer}.dot:hover{stroke:var(--ink);stroke-width:2.6}
+.mark{pointer-events:none}
+.halo{pointer-events:none}
+.striphit{cursor:crosshair;outline:none}
+.striphit:focus{stroke:var(--focus);stroke-width:2}
+#tip button{background:#fff;color:var(--ink);border:0;border-radius:6px;padding:.35rem .6rem;min-height:44px;font:inherit;cursor:pointer;margin:.35rem .35rem 0 0}
 #tip{position:fixed;z-index:30;pointer-events:none;background:var(--ink);color:#fff;padding:.6rem .75rem;border-radius:8px;
 font-size:.86rem;line-height:1.5;max-width:350px;display:none;box-shadow:0 4px 12px rgba(0,0,0,.18)}
 svg.strip{width:100%;height:auto;display:block}
 .tools{display:flex;flex-wrap:wrap;gap:.9rem;align-items:center;margin:1.2rem 0;padding:.8rem 1rem;background:var(--panel);border:1px solid var(--rule);border-radius:10px}
 .tools input{padding:.4rem .6rem;border:1px solid var(--st-gray-300);border-radius:6px;font:inherit}
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
-.chip{border:1px solid var(--st-gray-300);border-radius:999px;padding:.45rem .85rem;min-height:40px;font-size:.88rem;text-decoration:none;background:#fff;color:var(--ink);cursor:pointer;font:inherit}
+.chip{border:1px solid var(--st-gray-300);border-radius:999px;padding:.45rem .85rem;min-height:44px;font-size:.88rem;text-decoration:none;background:#fff;color:var(--ink);cursor:pointer;font:inherit}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .downloads{font-size:.85rem;color:var(--muted)}
 .payer-section{margin-top:2.4rem;border-top:2px solid var(--rule);padding-top:.6rem}
@@ -242,7 +251,7 @@ h1.hero{font-size:clamp(2rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-0.02
 .proof strong{display:block;font-size:.98rem}
 .explorebar{position:sticky;top:0;z-index:15;background:#fff;border-bottom:1px solid var(--rule);padding:.75rem 0;display:flex;flex-wrap:wrap;gap:.7rem;align-items:center}
 .seg{display:flex;border:1px solid var(--st-gray-300);border-radius:999px;overflow:hidden}
-.seg button{border:0;background:#fff;padding:.45rem .8rem;min-height:40px;font:inherit;font-size:.88rem;cursor:pointer}
+.seg button{border:0;background:#fff;padding:.45rem .8rem;min-height:44px;font:inherit;font-size:.88rem;cursor:pointer}
 .seg button.on{background:var(--ink);color:#fff}
 .resultline{font-size:.85rem;color:var(--muted);width:100%}
 .answerband{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:1.1rem 0 1.5rem}
@@ -491,12 +500,28 @@ def _corpus_meter(inv: dict, summary_rows: list[dict], n_codes: int) -> str:
             f"<div class='mtrack'><div class='mfill' style='width:{pct:.1f}%'></div></div>"
             f"<div class='mstat'><span class='num'>{html.escape(stat)}</span>{fresh}</div></div>"
         )
-    parts.append(
-        f"<p class='note'>Total in the corpus: {int(inv.get('total_rows') or 0):,} rate rows from "
-        f"{int(inv.get('source_files') or 0)} kept files, {int(inv.get('provider_groups') or 0):,} provider groups by tax ID. "
-        "The full source table with index links sits further down this page.</p></section>"
-    )
+    parts.append(_corpus_total_line(inv) + "</section>")
     return "".join(parts)
+
+
+def _corpus_total_line(inv: dict) -> str:
+    """The corpus total, written for a reader with no data background.
+
+    Every term that needs one gets its explanation in the same sentence,
+    so the counts can be repeated to a non-technical audience as-is.
+    """
+    total = int(inv.get("total_rows") or 0)
+    files = int(inv.get("source_files") or 0)
+    groups = int(inv.get("provider_groups") or 0)
+    return (
+        f"<p class='note'>What those numbers add up to: health insurers must publish the prices they "
+        f"pay for care. We read those published price lists, kept only the prices for the eight "
+        f"billing codes this site tracks, and discarded the rest. What remains is {total:,} single "
+        f"prices, taken from {files} insurer files. Together they cover {groups:,} billing groups. "
+        "A billing group is one doctor's office or clinic billing under a single tax number; one "
+        "group can include many individual doctors. Every price on this page comes from one of those "
+        "files, and the table further down lists each file with a link back to the original.</p>"
+    )
 
 
 _FLAG_LABELS = {
@@ -758,15 +783,42 @@ def home(request: Request) -> str:
     all_rows_by_code: dict[str, list[dict]] = {}
     all_vals: list[float] = []
     for c in codes:
-        rs = [r for r in rates_for_code(c.code, limit=2000) if r.get("negotiated_rate") is not None]
+        rs = [r for r in rates_for_code(c.code, limit=100000) if r.get("negotiated_rate") is not None]
         all_rows_by_code[c.code] = rs
         all_vals.extend(float(r["negotiated_rate"]) for r in rs)
-    # The scale must cover the summary whiskers too: the dot sample is
-    # capped per code, and a p75 from the full summary can exceed every
-    # sampled value. A scale built from the sample alone clips the
-    # most expensive rows off the chart (Tufte review, 2026-10-28).
+    # One scale per code, shared by every payer and rate type inside that
+    # code: the next $25 above the larger of the code's 99th percentile
+    # and its largest summary p75 (Tufte review, 2026-10-28). A single
+    # global scale let one code's $300 rates crush another code's $6
+    # medians into the left edge of every row. Prices above a code's
+    # scale are drawn below the row and named, never clipped silently.
+    xmax_by_code: dict[str, float] = {}
+    for c in codes:
+        vals = sorted(float(r["negotiated_rate"]) for r in all_rows_by_code[c.code])
+        p75_peak = max(
+            (float(r["p75"] or 0) for r in rows if str(r["billing_code"]) == c.code),
+            default=0.0,
+        )
+        if vals:
+            p99 = _percentile(vals, 0.99) if len(vals) >= 20 else max(vals)
+            xmax_by_code[c.code] = max(25.0, (int(max(p99, p75_peak) / 25) + 1) * 25)
+        else:
+            xmax_by_code[c.code] = 100.0
     spread_peak = max((float(r["p75"] or r["median"] or 0) for r in rows), default=0.0)
     xmax = max(25.0, (int(max([*all_vals, spread_peak]) / 25) + 1) * 25) if (all_vals or spread_peak) else 100.0
+    family_vals = [
+        float(r["negotiated_rate"])
+        for c in codes if c.code in _FAMILY
+        for r in all_rows_by_code[c.code]
+    ]
+    family_peak = max(
+        (float(r["p75"] or 0) for r in rows if str(r["billing_code"]) in _FAMILY),
+        default=0.0,
+    )
+    ladder_xmax = (
+        max(25.0, (int(max([*family_vals, family_peak]) / 25) + 1) * 25)
+        if (family_vals or family_peak) else 100.0
+    )
 
     def _money(v) -> str:
         return f"${(v or 0):,.2f}"
@@ -811,23 +863,23 @@ def home(request: Request) -> str:
         "<label>Code <input id='codefilter' type='search' placeholder='try 99213' autocomplete='off'></label>"
         "<span class='downloads'>Download: <a href='/api/aggregate.csv'>aggregate CSV</a> · <a href='/api/summary.csv'>by-payer CSV</a> · "
         "<a href='/api/aggregate'>aggregate JSON</a> · <a href='/api/summary'>by-payer JSON</a> · <a href='/api/sources'>sources JSON</a></span>"
-        f"<span class='resultline' id='resultline'>Showing {len(codes)} codes · {len(payers)} payers · {total_rates} benchmark rates · scale $0 to ${xmax:,.0f}, fixed for every view. {html.escape(finding)}</span></div>"
+        f"<span class='resultline' id='resultline'>Showing {len(codes)} codes · {len(payers)} payers · {total_rates} benchmark rates · each code on its own scale from $0, the same for every payer inside that code. {html.escape(finding)}</span></div>"
     )
     market = (
         "<h2 id='rates'>What each payer pays, code by code</h2>"
         "<p>One row per payer per rate type: the dot is the median, the line is the middle half of observed rates. "
         "Rate types are never pooled. Every row carries its count. Select a row label to open that code at that payer, where every rate sits with its source file. "
-        "Vertical position inside a dot row further down is layout only. Horizontal position is dollars.</p>"
-        + _payer_spread(rows, codes, xmax)
+        "Further down, every distinct price is drawn once with its provider group count, so a price many groups share cannot look like a spread of prices.</p>"
+        + _payer_spread(rows, codes, xmax_by_code)
         + "<h2>The consult family, panel by panel</h2>"
         "<p>One panel per code, one row per payer per rate type. The dot is the median (filled for negotiated, open for fee schedule), "
         "the bar is the middle half, and the gold line is Medicare's national rate for that code. Nothing connects across codes, "
         "because these are separate codes, not a trend. Where a payer files no rate, the row says so. "
         "Source: payer Transparency in Coverage files as filed; Medicare Physician Fee Schedule 2026; "
         "negotiated and fee schedule rates shown separately, never pooled. 99213 and G2212 are not in this family.</p>"
-        + _family_ladder(rows, xmax)
+        + _family_ladder(rows, ladder_xmax)
         + "<h2>Every observed rate, payer by payer</h2>"
-        + _strip_block(codes, all_rows_by_code, xmax, script=False)
+        + _strip_block(codes, all_rows_by_code, xmax_by_code, script=False)
         + "<h3>See the numbers: all payers</h3>"
         + ("<div class='table-wrap'><table class='filterable'><thead><tr><th>Code</th><th>Rate type</th><th>Payers</th><th>Rates</th><th>Provider groups</th>"
            "<th>p25</th><th>Median</th><th>p75</th><th>Min</th><th>Max</th></tr></thead><tbody>")
@@ -864,7 +916,7 @@ def home(request: Request) -> str:
         sections.append(
             f"<section class='payer-section' id='payer-{html.escape(_slug_payer(payer))}'>"
             f"<h2>{html.escape(payer)}</h2><p class='coverage'>{html.escape(line)}</p>"
-            + _strip_block(codes, sub_by_code, xmax, script=False)
+            + _strip_block(codes, sub_by_code, xmax_by_code, script=False, payer=payer)
             + f"<h3>See the numbers: {html.escape(payer)}</h3>"
             + _TABLE_HEAD
             + _trs(sub, link_payer=payer)
@@ -926,174 +978,307 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
     return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
 
 
-_DOT_CAP = 240
+_STRIP_SEQ = [0]
 
 
-def _merge_identical(groups: list[dict]) -> list[dict]:
-    """Merge code groups whose dollar values are exactly the same set.
+def _price_stacks(rows: list[dict]) -> list[dict]:
+    """Group rate rows by exact price: one stack per distinct dollar value.
 
-    Some payers publish the identical contracted amounts for a family of
-    codes. Drawing that one distribution six times repeats a single fact
-    and reads as fabricated, so the shared distribution is drawn once and
-    labeled with every code it covers. Median, band, and counts are those
-    of the shared set, and the label says each code carries this same set.
+    Each stack carries its rate count, its provider-group count (distinct
+    tax IDs), and up to 50 example groups for the detail panel. This is
+    the unit the strip draws and the reader selects: a price shared by
+    400 groups is one mark with the count printed, never 400 dots fused
+    into a blob that reads as a spread of different prices.
     """
-    order: list[str] = []
-    by_key: dict[tuple, dict] = {}
-    for g in groups:
-        vals = tuple(sorted(float(r["negotiated_rate"]) for r in g["rows"]))
-        key = (g["rtype"], vals)
-        if key in by_key:
-            by_key[key]["codes"].append(g["code"])
-        else:
-            merged = dict(g)
-            merged["codes"] = [g["code"]]
-            by_key[key] = merged
-            order.append(key)
-    return [by_key[k] for k in order]
+    by_val: dict[float, dict] = {}
+    for i, r in enumerate(rows):
+        v = round(float(r["negotiated_rate"]), 2)
+        s = by_val.setdefault(v, {"v": v, "n": 0, "tins": set(), "keys": set(), "groups": []})
+        s["n"] += 1
+        tin = str(r.get("tin") or "")
+        if tin:
+            s["tins"].add(tin)
+        key = _group_key(r, i)
+        if key in s["keys"]:
+            continue
+        s["keys"].add(key)
+        if len(s["groups"]) < 50:
+            who = r.get("provider_name") or ("NPI " + str(r["npi"]) if r.get("npi") else "provider not named in file")
+            s["groups"].append(
+                {
+                    "who": str(who),
+                    "tin": tin,
+                    "npi": str(r.get("npi") or ""),
+                    "payer": str(r.get("payer") or ""),
+                    "src": str(r.get("source_url") or ""),
+                }
+            )
+    out: list[dict] = []
+    for v in sorted(by_val):
+        s = by_val[v]
+        out.append({"v": v, "n": s["n"], "g": len(s["tins"]), "groups": s["groups"]})
+    return out
 
 
-def _sample(rows: list[dict], cap: int = _DOT_CAP) -> tuple[list[dict], bool]:
-    """Evenly spaced sample of at most `cap` rows after sorting by rate.
+def _group_key(r: dict, i: int) -> str:
+    """Identity for listing one provider group on a rate row.
 
-    Returns (sample, was_capped). Every rate still sits in the tables and
-    on the code pages; only the drawn dots are thinned, and the row says so.
+    A tax ID when the file carries one, else the NPI, else the row
+    itself, so tax-ID-less rows stay individually listed in the panel.
+    Group counts (the g on a stack) use the site's definition, distinct
+    tax IDs, the same count the tables and flags use; a rate with no
+    tax ID counts as a rate, never as a group.
     """
-    ordered = sorted(rows, key=lambda z: float(z["negotiated_rate"]))
-    if len(ordered) <= cap:
-        return ordered, False
-    step = (len(ordered) - 1) / (cap - 1)
-    return [ordered[round(i * step)] for i in range(cap)], True
+    tin = str(r.get("tin") or "")
+    if tin:
+        return f"tin:{tin}"
+    npi = str(r.get("npi") or "")
+    if npi:
+        return f"npi:{npi}"
+    return f"row:{i}"
 
 
-def _strip_svg(code_groups: dict[str, list[dict]], xmax: float, codes_meta: dict[str, str]) -> tuple[str, list[str]]:
-    """Draw one strip: one row per distinct distribution, shared zero scale.
+def _strip_svg(
+    code_groups: dict[str, list[dict]],
+    xmax_by_code: dict[str, float],
+    codes_meta: dict[str, str],
+    payer: str | None = None,
+) -> tuple[str, list[str], str]:
+    """Draw the rate strip: one block per code, one row per rate type.
 
-    code_groups maps code -> rate-type groups ({rtype, rows}). Groups with
-    identical dollar sets share a row labeled with all their codes (see
-    _merge_identical). Returns (svg, sampling notes).
+    The mark is a distinct price, never an individual rate. A row with at
+    most 30 distinct prices draws one stacked column per price (at most 8
+    dots, then the group count printed). A row with more draws $5 price
+    bins with the group count on every bar. Each code keeps its own
+    zero-based scale, shared by every payer and both rate types inside
+    that code, and the block says what its scale is. Prices above the
+    scale are dotted below the row at the axis edge and named in the
+    notes; nothing is clipped silently. Returns (svg, notes, data script)
+    where the data script carries each row's price stacks for the detail
+    panel, so hover and keyboard step price by price, not dot by dot.
     """
-    flat: list[dict] = []
-    empties: list[str] = []
-    for code, groups in code_groups.items():
-        if not groups:
-            empties.append(code)
-        for g in groups:
-            flat.append({"code": code, **g})
-    merged = _merge_identical(flat)
-    notes: list[str] = []
-    width, right_w = 980, 208
-    widest = max((len(" · ".join(g["codes"])) for g in merged), default=5)
-    label_w = min(360, max(120, int(widest * 7.6) + 10))
+    import json as _json
+
+    _STRIP_SEQ[0] += 1
+    sid = _STRIP_SEQ[0]
+    width, label_w, right_w = 1120, 118, 272
     plot_w = width - label_w - right_w - 12
-    sub_h = 40
-    n_rows = len(merged) + len(empties)
-    height = 34 + sub_h * max(1, n_rows) + 10
     x0 = label_w
+    row_h = 48
+    notes: list[str] = []
+    data_rows: list[dict] = []
 
-    def X(v: float) -> float:
-        return x0 + (v / xmax) * plot_w
+    # First pass: measure height.
+    height = 10
+    blocks: list[tuple[str, list[dict], float]] = []
+    for code, groups in code_groups.items():
+        xc = float(xmax_by_code.get(code, 100.0))
+        blocks.append((code, groups, xc))
+        height += 38 + row_h * max(1, len(groups)) + 10
 
     parts = [
         f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Rate strip: one row per distinct pay pattern per rate type, one dot per observed dollar rate on a shared dollar scale starting at zero, middle half and median marked">'
+        'aria-label="Rate strip: one block per billing code, one row per rate type, one mark per distinct price with its provider group count, middle half and median marked, each code on its own dollar scale starting at zero">'
     ]
-    tick = 0
-    while tick <= xmax:
-        parts.append(f'<line x1="{X(tick):.0f}" y1="22" x2="{X(tick):.0f}" y2="{height - 8}" stroke="#E5E7EB"/>')
-        parts.append(f'<text x="{X(tick):.0f}" y="14" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
-        tick += 25
-    y_cursor = 30
-    for g in merged:
-        mid = y_cursor + 18
-        vals = sorted(float(r["negotiated_rate"]) for r in g["rows"])
-        p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
-        label = " · ".join(g["codes"])
-        parts.append(f'<g class="srow" data-code="{html.escape(" ".join(g["codes"]).lower())}" data-type="{html.escape(str(g["rtype"]))}">')
-        parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(label)}</text>')
-        parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(str(g["rtype"]))}</text>')
-        if len(g["codes"]) > 1:
-            parts.append(f'<text x="{x0 + 2}" y="{mid - 13}" font-size="9.5" fill="#6B7280">same published amounts for each of these codes</text>')
-        if len(vals) > 1:
-            parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#E5E7EB"/>')
-        drawn, capped = _sample(g["rows"])
-        if capped:
-            notes.append(f"{label} ({g['rtype']}): {len(drawn)} of {len(vals)} dots drawn, evenly spaced. Every rate is in the tables.")
-        for j, r in enumerate(drawn):
-            v = float(r["negotiated_rate"])
-            y = mid - 5 + (j % 3) * 5
-            who = r.get("provider_name") or ("NPI " + r["npi"] if r.get("npi") else "provider not named in file")
-            title = html.escape(f"{r['payer']} | {r['negotiated_type']} | ${v:,.2f} | {who}")
-            attrs = (
-                f'class="dot" tabindex="0" data-code="{html.escape(label)}" data-rate="${v:,.2f}" '
-                f'data-payer="{html.escape(str(r["payer"]))}" data-type="{html.escape(str(r["negotiated_type"]))}" '
-                f'data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" data-npi="{html.escape(str(r["npi"]))}" '
-                f'data-src="{html.escape(str(r["source_url"]))}" '
-                f'data-median="${med:,.2f}" data-band="${p25:,.2f} to ${p75:,.2f}"'
+    y = 8
+    row_idx = 0
+    for code, groups, xc in blocks:
+        def X(v: float, xc: float = xc) -> float:
+            return x0 + (v / xc) * plot_w
+
+        mrate = reference.medicare_rate(code)
+        parts.append(f'<text x="0" y="{y + 13}" font-size="13" font-weight="700">{html.escape(code)}</text>')
+        head = f"scale $0 to ${xc:,.0f}, same for every payer in this code"
+        if mrate:
+            head += f" · gold tick is Medicare ${mrate:,.2f}"
+        parts.append(f'<text x="64" y="{y + 13}" font-size="9.5" fill="#6B7280">{html.escape(head)}</text>')
+        y += 22
+        step = 25 if xc <= 150 else (50 if xc <= 400 else 100)
+        tick = 0
+        while tick <= xc:
+            parts.append(f'<text x="{X(tick):.0f}" y="{y + 10}" font-size="9" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+            tick += step
+        y += 16
+        if not groups:
+            mid = y + 24
+            parts.append(f'<g class="srow" data-code="{html.escape(code.lower())}" data-type="">')
+            parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(code)}</text>')
+            parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(codes_meta.get(code, ""))}</text>')
+            parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
+            parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
+            parts.append("</g>")
+            y += row_h + 10
+            continue
+        for g in groups:
+            rows = g["rows"]
+            rtype = str(g["rtype"])
+            vals = sorted(float(r["negotiated_rate"]) for r in rows)
+            p25, med, p75 = _percentile(vals, 0.25), _percentile(vals, 0.5), _percentile(vals, 0.75)
+            stacks = _price_stacks(rows)
+            n_distinct = len(stacks)
+            n_groups = len({str(r.get("tin") or "") for r in rows} - {""})
+            modal = max(stacks, key=lambda s: s["g"]) if stacks else {"v": 0.0, "g": 0}
+            mid = y + 24
+            # Panel data: a full group list only where stepping through
+            # it is usable (12 or fewer groups); larger stacks carry one
+            # example group and the exact-price link to the code page.
+            # Source URLs repeat across groups, so each row stores them
+            # once and groups point at the list by index.
+            budget = 200
+            srcs: list[str] = []
+            json_stacks = []
+            for s in stacks:
+                step_ok = s["g"] <= 12 and budget >= s["g"]
+                if step_ok:
+                    budget -= s["g"]
+                    embed = s["groups"]
+                else:
+                    embed = s["groups"][:1]
+                jgroups = []
+                for gr in embed:
+                    if gr["src"] not in srcs:
+                        srcs.append(gr["src"])
+                    jgroups.append(
+                        {"who": gr["who"], "tin": gr["tin"], "npi": gr["npi"], "payer": gr["payer"], "s": srcs.index(gr["src"])}
+                    )
+                json_stacks.append({"v": s["v"], "n": s["n"], "g": s["g"], "step": step_ok, "groups": jgroups})
+            data_rows.append(
+                {"code": code, "type": rtype, "med": med, "p25": p25, "p75": p75, "n": len(vals), "srcs": srcs, "stacks": json_stacks}
             )
-            if g["rtype"] == "negotiated":
-                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#111827" fill-opacity="0.88"><title>{title}</title></circle>')
+            parts.append(f'<g class="srow" data-code="{html.escape(code.lower())}" data-type="{html.escape(rtype)}">')
+            tick = 0
+            while tick <= xc:
+                parts.append(f'<line x1="{X(tick):.0f}" y1="{mid - 20}" x2="{X(tick):.0f}" y2="{mid + 20}" stroke="#F3F4F6"/>')
+                tick += step
+            if len(vals) > 1:
+                parts.append(f'<rect x="{X(p25):.1f}" y="{mid - 9}" width="{max(2.0, X(p75) - X(p25)):.1f}" height="18" fill="#E5E7EB"/>')
+            if mrate and mrate <= xc:
+                parts.append(f'<line x1="{X(mrate):.1f}" y1="{mid - 15}" x2="{X(mrate):.1f}" y2="{mid + 15}" stroke="#A16207" stroke-width="1.5"><title>Medicare national rate ${mrate:,.2f}</title></line>')
+            inliers = [s for s in stacks if s["v"] <= xc]
+            outliers = [s for s in stacks if s["v"] > xc]
+            if n_distinct <= 30:
+                for s in inliers:
+                    cx = X(s["v"])
+                    dots = min(max(s["g"], 1), 8)
+                    for k in range(dots):
+                        cy = mid + (k - (dots - 1) / 2) * 7
+                        if rtype == "negotiated":
+                            parts.append(f'<circle class="mark" cx="{cx:.1f}" cy="{cy:.1f}" r="3" fill="#111827"><title>${s["v"]:,.2f} · {s["g"]} groups</title></circle>')
+                        else:
+                            parts.append(f'<circle class="mark" cx="{cx:.1f}" cy="{cy:.1f}" r="3" fill="#FFFFFF" stroke="#111827" stroke-width="1.2"><title>${s["v"]:,.2f} · {s["g"]} groups</title></circle>')
+                    if s["g"] > 8:
+                        parts.append(f'<text class="mark" x="{cx:.1f}" y="{mid - 27}" font-size="9" text-anchor="middle">×{s["g"]:,}</text>')
             else:
-                parts.append(f'<circle {attrs} cx="{X(v):.1f}" cy="{y}" r="4" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{title}</title></circle>')
-        parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 11}" x2="{X(med):.1f}" y2="{mid + 11}" stroke="#111827" stroke-width="3"/>')
-        rx = x0 + plot_w + 12
-        if len(vals) == 1:
-            parts.append(f'<text x="{rx}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} | n=1, no spread</text>')
-        else:
-            per = f" | n={len(vals):,} each" if len(g["codes"]) > 1 else f" | n={len(vals):,}"
+                bins: dict[int, int] = {}
+                for s in inliers:
+                    b = int(s["v"] // 5)
+                    bins[b] = bins.get(b, 0) + s["g"]
+                cmax = max(bins.values()) if bins else 1
+                for b, cnt in sorted(bins.items()):
+                    if cnt <= 0:
+                        continue
+                    bx, bw = X(b * 5), max(1.5, X(5) - X(0))
+                    bh = (cnt / cmax) * 30
+                    parts.append(f'<rect class="mark" x="{bx:.1f}" y="{mid + 15 - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="#111827" fill-opacity="0.85"><title>${b * 5:.0f} to ${b * 5 + 5:.0f}: {cnt:,} groups</title></rect>')
+                    parts.append(f'<text class="mark" x="{bx + bw / 2:.1f}" y="{mid + 15 - bh - 3:.1f}" font-size="8.5" text-anchor="middle">{cnt:,}</text>')
+                notes.append(
+                    f"{code} ({rtype}): bars count provider groups in $5 price bins. "
+                    "Every distinct price, with its group count, is behind the row's hover, tap, and arrow keys, and on the code page."
+                )
+            for i, s in enumerate(outliers[:5]):
+                cx = X(xc) - 4 - i * 10
+                parts.append(f'<circle class="mark" cx="{cx:.1f}" cy="{mid + 19}" r="3" fill="#FFFFFF" stroke="#111827"><title>observed price ${s["v"]:,.2f} · {s["g"]} groups, above this code\'s scale</title></circle>')
+            if outliers:
+                notes.append(
+                    f"{code} ({rtype}): {len(outliers)} distinct prices sit above the ${xc:,.0f} scale; "
+                    f"highest ${outliers[-1]['v']:,.2f}. Every one is listed on the code page."
+                )
+            parts.append(f'<line x1="{X(med):.1f}" y1="{mid - 16}" x2="{X(med):.1f}" y2="{mid + 16}" stroke="#111827" stroke-width="3"/>')
             parts.append(
-                f'<text x="{rx}" y="{mid - 2}" font-size="11">median ${med:,.0f}</text>'
-                f'<text x="{rx}" y="{mid + 12}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f}{per}</text>'
+                f'<a href="/code/{html.escape(code)}"><rect x="0" y="{mid - 24}" width="{label_w}" height="48" style="fill:#fff;fill-opacity:0"/>'
+                f'<text x="0" y="{mid - 2}" font-size="11.5" font-weight="700" fill="#0F766E">{html.escape(rtype)}</text>'
+                f'<text x="0" y="{mid + 12}" font-size="9.5" fill="#374151">{html.escape(payer or "all payers")}</text></a>'
             )
-        parts.append("</g>")
-        y_cursor += sub_h
-    for code in empties:
-        mid = y_cursor + 18
-        parts.append(f'<g class="srow" data-code="{html.escape(code.lower())}" data-type="">')
-        parts.append(f'<text x="0" y="{mid - 2}" font-size="12.5" font-weight="700">{html.escape(code)}</text>')
-        parts.append(f'<text x="0" y="{mid + 12}" font-size="10" fill="#374151">{html.escape(codes_meta.get(code, ""))}</text>')
-        parts.append(f'<text x="{x0 + 6}" y="{mid + 4}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text>')
-        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 4}" font-size="11" fill="#374151">n=0</text>')
-        parts.append("</g>")
-        y_cursor += sub_h
+            rx = x0 + plot_w + 12
+            if len(vals) == 1:
+                parts.append(f'<text x="{rx}" y="{mid + 4}" font-size="11">single rate ${med:,.0f} · n=1, no spread</text>')
+            else:
+                pct = _pct_text(code, med)
+                l1 = f"median ${med:,.0f}" + (f" · {pct}" if pct else "")
+                parts.append(f'<text x="{rx}" y="{mid - 10}" font-size="11">{html.escape(l1)}</text>')
+                parts.append(f'<text x="{rx}" y="{mid + 4}" font-size="10" fill="#374151">middle half ${p25:,.0f} to ${p75:,.0f}</text>')
+                parts.append(
+                    f'<text x="{rx}" y="{mid + 18}" font-size="9.5" fill="#374151">n={len(vals):,} rates · {n_groups:,} groups · {n_distinct} distinct · most ${modal["v"]:,.0f} ×{modal["g"]:,}</text>'
+                )
+            parts.append(
+                f'<circle class="halo" data-sid="{sid}" data-row="{row_idx}" r="10" style="display:none" fill="none" stroke="#0F766E" stroke-width="2"/>'
+            )
+            parts.append(
+                f'<rect class="striphit" data-sid="{sid}" data-row="{row_idx}" data-x0="{x0}" data-pw="{plot_w}" data-xmax="{xc}" data-mid="{mid}" '
+                f'x="{x0}" y="{mid - 24}" width="{plot_w}" height="48" tabindex="0" focusable="true" role="slider" '
+                f'aria-label="{html.escape(code)} {html.escape(rtype)} prices" aria-valuemin="{stacks[0]["v"] if stacks else 0}" '
+                f'aria-valuemax="{stacks[-1]["v"] if stacks else 0}" aria-valuenow="{med}" '
+                f'aria-valuetext="median ${med:,.2f} of {n_distinct} distinct prices for {html.escape(code)} {html.escape(rtype)}" '
+                'style="fill:#fff;fill-opacity:0;pointer-events:all"/>'
+            )
+            parts.append("</g>")
+            row_idx += 1
+            y += row_h
+        y += 10
     parts.append("</svg>")
-    return "".join(parts), notes
+    data_script = (
+        f'<script type="application/json" class="stripdata" data-sid="{sid}">'
+        + _json.dumps({"rows": data_rows}).replace("</", "<\\/")
+        + "</script>"
+    )
+    return "".join(parts), notes, data_script
 
 
-def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
+def _payer_spread(summary_rows: list[dict], codes, xmax_by_code: dict[str, float]) -> str:
     """Hero visual: one row per payer per rate type inside each code block.
 
     Whisker is the middle half (p25 to p75), dot is the median. Every code
-    keeps its own block and its own rows; identical distributions are NOT
-    merged here, because the repetition is the comparison. Row click goes
-    to the code page filtered to that payer, where every rate lives.
+    keeps its own block, its own rows, and its own zero-based scale, so a
+    $6 median is not crushed by another code's $300 rates; the block
+    prints its scale. Identical distributions are NOT merged here,
+    because the repetition is the comparison. Row click goes to the code
+    page filtered to that payer, where every rate lives.
     """
     width, label_w, plot_w = 1120, 235, 505
     x0 = label_w
-
-    def X(v: float) -> float:
-        return x0 + (v / xmax) * plot_w
 
     by_code: dict[str, list[dict]] = {}
     for r in summary_rows:
         by_code.setdefault(str(r["billing_code"]), []).append(r)
     row_h = 26
     total_rows = sum(max(1, len(by_code.get(c.code, []))) for c in codes)
-    height = 40 + total_rows * row_h + len(codes) * 22 + 12
+    height = 24 + total_rows * row_h + len(codes) * 42 + 12
     parts = [
         f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Payer spread: for each billing code, one row per payer and rate type showing the median and middle half of observed dollar rates on a shared scale starting at zero">'
+        'aria-label="Payer spread: for each billing code, one row per payer and rate type showing the median and middle half of observed dollar rates, each code on its own scale starting at zero">'
     ]
-    tick = 0
-    while tick <= xmax:
-        parts.append(f'<line x1="{X(tick):.0f}" y1="26" x2="{X(tick):.0f}" y2="{height - 10}" stroke="#E5E7EB"/>')
-        parts.append(f'<text x="{X(tick):.0f}" y="16" font-size="10" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
-        tick += 25
-    y = 36
+    y = 12
     for c in codes:
+        xc = float(xmax_by_code.get(c.code, 100.0))
+
+        def X(v: float, xc: float = xc) -> float:
+            return x0 + (v / xc) * plot_w
+
         parts.append(f'<text x="0" y="{y + 12}" font-size="13" font-weight="700">{html.escape(c.code)}</text>')
-        parts.append(f'<text x="54" y="{y + 12}" font-size="9.5" fill="#6B7280">{html.escape(c.note.replace("Sample code: ", "").replace("Interprofessional ", ""))}</text>')
+        note = c.note.replace("Sample code: ", "").replace("Interprofessional ", "")
+        parts.append(f'<text x="54" y="{y + 12}" font-size="9.5" fill="#6B7280">{html.escape(note)} · scale $0 to ${xc:,.0f}</text>')
         y += 20
+        step = 25 if xc <= 150 else (50 if xc <= 400 else 100)
+        tick = 0
+        while tick <= xc:
+            parts.append(f'<text x="{X(tick):.0f}" y="{y + 10}" font-size="9" fill="#374151" text-anchor="middle">${tick:,.0f}</text>')
+            tick += step
+        y += 14
+        block_top = y
+        tick = 0
+        while tick <= xc:
+            parts.append(f'<line x1="{X(tick):.0f}" y1="{block_top}" x2="{X(tick):.0f}" y2="{block_top + max(1, len(by_code.get(c.code, []))) * row_h}" stroke="#F3F4F6"/>')
+            tick += step
         rows = sorted(
             by_code.get(c.code, []),
             key=lambda r: (str(r["negotiated_type"]) != "negotiated", str(r["payer"])),
@@ -1306,7 +1491,7 @@ def _distribution_facets(rows_by_type: dict[str, list[dict]], xmax_code: float) 
                 y = 30 + (j % lanes) * 12
                 who = r.get("provider_name") or ("NPI " + str(r["npi"]) if r.get("npi") else "provider not named in file")
                 attrs = (
-                    f'class="dot" tabindex="0" data-code="" data-rate="${v:,.2f}" data-payer="{html.escape(str(r["payer"]))}" '
+                    f'class="dot" data-code="" data-rate="${v:,.2f}" data-payer="{html.escape(str(r["payer"]))}" '
                     f'data-type="{html.escape(rtype)}" data-who="{html.escape(str(who))}" data-tin="{html.escape(str(r["tin"]))}" '
                     f'data-npi="{html.escape(str(r["npi"]))}" data-src="{html.escape(str(r["source_url"]))}" data-median="${med:,.2f}" data-band=""'
                 )
@@ -1357,14 +1542,22 @@ def _distribution_facets(rows_by_type: dict[str, list[dict]], xmax_code: float) 
 
 
 _STRIP_CAPTION = (
-    "One row per distinct pay pattern and rate type, on one dollar scale that starts at zero for every row. "
-    "Rate types are never pooled: a negotiated median and a fee schedule median are different facts. "
-    "Where a payer publishes the identical amounts for several codes, those codes share one row instead of repeating the same picture. "
-    "Each dot is one real dollar rate from a payer file. The grey band is the middle half of rates (p25 to p75). The thick tick is the median. "
-    "Source: payer Transparency in Coverage files as filed. "
-    "Percentiles use linear interpolation between closest ranks. Observed dots are never interpolated. "
-    "Filled dots are negotiated rates. Hollow dots are fee schedule rates. Percentage rates are not dollars and are left out. "
-    "Hover any dot for payer, rate type, amount, and provider. Click or tap to pin its panel and open the source link. Tab works the same, Enter pins, Escape closes."
+    "One block per billing code, one row per rate type. Each mark is one distinct price, not one rate: "
+    "where many provider groups pay the same price, the dots stack and the count is printed, so one common "
+    "price cannot masquerade as a spread of different prices. Rows with more than 30 distinct prices switch "
+    "to $5 price bins with the provider group count on every bar. Hover, tap, or focus a row to read each "
+    "price and how many groups sit on it; the left and right arrow keys step price by price, Enter pins the "
+    "panel, Escape closes it. Group counts are distinct tax IDs, the same count the tables and flags use; "
+    "a rate whose file row carries no tax ID counts as a rate, never as a group, and the panel says so. "
+    "The grey band is the middle half of rates (p25 to p75) and the thick tick is "
+    "the median. Each code has its own dollar scale starting at zero, the same for every payer inside that "
+    "code, and the block prints its scale; prices above the scale are dotted below the row and named in the "
+    "notes under the chart. Rate types are never pooled: a negotiated median and a fee schedule median are "
+    "different facts. Filled dots are negotiated rates; hollow dots are fee schedule rates. Percentage "
+    "rates are not dollars and are left out. Percentiles use linear interpolation between closest ranks; "
+    "the prices themselves are observed values, never interpolated. Source: payer Transparency in "
+    "Coverage files as filed. Every individual rate, with its provider and source file, sits on the code "
+    "page behind the row label."
 )
 
 
@@ -1383,7 +1576,7 @@ _EXPLORE_SCRIPT = """<script>
     pinned=true;tip.classList.add('pinned');fill(d,true);
     tip.style.display='block';tip.style.left='auto';tip.style.right='14px';tip.style.top='auto';tip.style.bottom='14px';
   }
-  function unpin(){pinned=false;tip.classList.remove('pinned');tip.style.display='none';}
+  function unpin(){pinned=false;pinKey=null;tip.classList.remove('pinned');tip.style.display='none';}
   function move(e){if(pinned)return;tip.style.left=Math.min(e.clientX+14,innerWidth-360)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-190)+'px';}
   document.querySelectorAll('.dot').forEach(function(el){
     el.addEventListener('mouseenter',function(e){if(!pinned){show(el.dataset);move(e);}});
@@ -1395,6 +1588,101 @@ _EXPLORE_SCRIPT = """<script>
     el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();pinned?unpin():pin(el.dataset,el);}});
   });
   document.addEventListener('keydown',function(e){if(e.key==='Escape')unpin();});
+  var strips={};
+  document.querySelectorAll('script.stripdata').forEach(function(s){
+    try{ strips[s.getAttribute('data-sid')]=JSON.parse(s.textContent); }catch(e){}
+  });
+  var sel={}, grp={}, pinKey=null;
+  function skey(sid,row){return sid+':'+row;}
+  function hitEl(sid,row){return document.querySelector('.striphit[data-sid="'+sid+'"][data-row="'+row+'"]');}
+  function haloEl(sid,row){return document.querySelector('.halo[data-sid="'+sid+'"][data-row="'+row+'"]');}
+  function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function money(v){return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function stackIdx(rd,val){var bi=0,bd=Infinity;rd.stacks.forEach(function(s,i){var d=Math.abs(s.v-val);if(d<bd){bd=d;bi=i;}});return bi;}
+  function renderTip(sid,row,pinned){
+    var rd=strips[sid].rows[row], idx=sel[skey(sid,row)]||0, s=rd.stacks[idx];
+    if(!s)return;
+    var gidx=Math.min(grp[skey(sid,row)]||0, Math.max(0,s.groups.length-1));
+    grp[skey(sid,row)]=gidx;
+    var gr=s.groups[gidx]||{};
+    var payers=[]; s.groups.forEach(function(g){if(g.payer&&payers.indexOf(g.payer)<0)payers.push(g.payer);});
+    var payerLine=payers.length===1?payers[0]:'all payers in this row';
+    var head=s.g>0
+      ? '<strong>'+money(s.v)+'</strong> · '+s.g.toLocaleString()+' provider group'+(s.g===1?'':'s')+' at this exact price'
+      : '<strong>'+money(s.v)+'</strong> · '+s.n.toLocaleString()+' rates at this price, no tax ID recorded for any of them';
+    var gline;
+    if(s.step){ gline='Group '+(gidx+1)+' of '+s.g.toLocaleString()+': '+esc(gr.who||'provider not named in file')+(gr.tin?'<br>TIN '+esc(gr.tin):'')+(gr.npi?'<br>NPI '+esc(gr.npi):''); }
+    else { gline='One of '+s.g.toLocaleString()+' groups: '+esc(gr.who||'provider not named in file')+(gr.tin?'<br>TIN '+esc(gr.tin):'')+(gr.npi?'<br>NPI '+esc(gr.npi):''); }
+    var out=head+'<br>'+esc(rd.code)+' · '+esc(rd.type)+' · '+esc(payerLine)+'<br>'+gline
+      +'<br>This row: median '+money(rd.med)+' · middle half '+money(rd.p25)+' to '+money(rd.p75)+' · '+rd.n.toLocaleString()+' rates';
+    if(s.step && s.g>1){ out+='<br><button type="button" data-act="prev">Prev group</button><button type="button" data-act="next">Next group</button>'; }
+    if(pinned){
+      var q='/code/'+encodeURIComponent(rd.code)+'?rate='+encodeURIComponent(s.v.toFixed(2))+(gr.payer?('&payer='+encodeURIComponent(gr.payer)):'');
+      var src=(rd.srcs&&gr.s!==undefined)?rd.srcs[gr.s]:'';
+      if(src){ out+='<br><a href="'+esc(src)+'">source payer file</a> · '; } else { out+='<br>'; }
+      out+='<a href="'+q+'">See all '+s.g.toLocaleString()+' groups at '+money(s.v)+'</a>';
+      out+='<br><span class="src">Left and right arrows step prices. Up and down step groups. Escape closes.</span>';
+    }
+    tip.innerHTML=out;
+    tip.style.display='block';
+  }
+  function selectStack(sid,row,idx,pinned){
+    var rd=strips[sid].rows[row]; if(!rd||!rd.stacks.length)return;
+    idx=Math.max(0,Math.min(idx,rd.stacks.length-1));
+    sel[skey(sid,row)]=idx; grp[skey(sid,row)]=0;
+    var s=rd.stacks[idx], hit=hitEl(sid,row), halo=haloEl(sid,row);
+    var x=parseFloat(hit.getAttribute('data-x0'))+(s.v/parseFloat(hit.getAttribute('data-xmax')))*parseFloat(hit.getAttribute('data-pw'));
+    halo.setAttribute('cx',x.toFixed(1)); halo.setAttribute('cy',hit.getAttribute('data-mid')); halo.style.display='block';
+    hit.setAttribute('aria-valuenow',s.v);
+    hit.setAttribute('aria-valuetext',money(s.v)+', '+(s.g>0?(s.g+' provider group'+(s.g===1?'':'s')+' at this price'):(s.n+' rates at this price, no tax ID recorded'))+', price '+(idx+1)+' of '+rd.stacks.length+' for '+rd.code+' '+rd.type);
+    renderTip(sid,row,pinned);
+  }
+  function pinTip(){
+    tip.style.left='auto';tip.style.right='14px';tip.style.top='auto';tip.style.bottom='14px';
+  }
+  document.querySelectorAll('.striphit').forEach(function(hit){
+    var sid=hit.getAttribute('data-sid'), row=hit.getAttribute('data-row'), key=skey(sid,row);
+    function valAt(e){ var r=hit.getBoundingClientRect(); var f=(e.clientX-r.left)/Math.max(1,r.width); return Math.max(0,f)*parseFloat(hit.getAttribute('data-xmax')); }
+    hit.addEventListener('pointermove',function(e){
+      if(pinKey&&pinKey!==key)return;
+      var rd=strips[sid].rows[row]; selectStack(sid,row,stackIdx(rd,valAt(e)),pinKey===key);
+      if(pinKey!==key) move(e);
+    });
+    hit.addEventListener('pointerdown',function(e){
+      var rd=strips[sid].rows[row]; var idx=stackIdx(rd,valAt(e));
+      if(pinKey===key&&(sel[key]||0)===idx){ unpin(); return; }
+      pinKey=key; pinned=true; tip.classList.add('pinned');
+      selectStack(sid,row,idx,true); pinTip();
+    });
+    hit.addEventListener('mouseleave',function(){ if(pinKey!==key){tip.style.display='none'; var h=haloEl(sid,row); if(h)h.style.display='none';} });
+    hit.addEventListener('focus',function(){
+      if(pinKey&&pinKey!==key)return;
+      var rd=strips[sid].rows[row]; var idx=sel[key]; if(idx===undefined){ idx=stackIdx(rd,rd.med); }
+      selectStack(sid,row,idx,pinKey===key);
+      var r=hit.getBoundingClientRect(); tip.style.left=Math.min(r.left+14,innerWidth-360)+'px'; tip.style.top=(r.bottom+10)+'px'; tip.style.right='auto'; tip.style.bottom='auto';
+    });
+    hit.addEventListener('blur',function(){ if(pinKey!==key) tip.style.display='none'; });
+    hit.addEventListener('keydown',function(e){
+      var rd=strips[sid].rows[row]; var idx=sel[key]||0; var s=rd.stacks[idx]; var isPin=pinKey===key;
+      if(e.key==='ArrowRight'){e.preventDefault();selectStack(sid,row,idx+1,isPin);}
+      else if(e.key==='ArrowLeft'){e.preventDefault();selectStack(sid,row,idx-1,isPin);}
+      else if(e.key==='PageDown'){e.preventDefault();selectStack(sid,row,idx+10,isPin);}
+      else if(e.key==='PageUp'){e.preventDefault();selectStack(sid,row,idx-10,isPin);}
+      else if(e.key==='Home'){e.preventDefault();selectStack(sid,row,0,isPin);}
+      else if(e.key==='End'){e.preventDefault();selectStack(sid,row,rd.stacks.length-1,isPin);}
+      else if(e.key==='ArrowDown'){e.preventDefault(); if(s&&s.step){grp[key]=Math.min((grp[key]||0)+1,s.groups.length-1); renderTip(sid,row,isPin);} }
+      else if(e.key==='ArrowUp'){e.preventDefault(); if(s&&s.step){grp[key]=Math.max((grp[key]||0)-1,0); renderTip(sid,row,isPin);} }
+      else if(e.key==='Enter'||e.key===' '){e.preventDefault(); if(isPin){unpin();} else {pinKey=key;pinned=true;tip.classList.add('pinned');renderTip(sid,row,true);pinTip();} }
+    });
+  });
+  tip.addEventListener('click',function(e){
+    var b=e.target.closest?e.target.closest('button[data-act]'):null; if(!b||!pinKey)return;
+    var parts=pinKey.split(':'), sid=parts[0], row=parts[1];
+    var rd=strips[sid].rows[row], s=rd.stacks[sel[pinKey]||0]; if(!s||!s.step)return;
+    var g=grp[pinKey]||0;
+    grp[pinKey]=b.getAttribute('data-act')==='next'?Math.min(g+1,s.groups.length-1):Math.max(g-1,0);
+    renderTip(sid,row,true);
+  });
   var f=document.getElementById('codefilter');
   if(f){f.addEventListener('input',function(){
     var q=f.value.trim().toLowerCase();
@@ -1402,7 +1690,7 @@ _EXPLORE_SCRIPT = """<script>
       tr.style.display=(!q||(tr.dataset.code||'').indexOf(q)>-1)?'':'none';
     });
     document.querySelectorAll('.srow,.prow').forEach(function(g){
-      g.style.opacity=(!q||(g.dataset.code||'').indexOf(q)>-1)?'':'0.3';
+      g.style.display=(!q||(g.dataset.code||'').indexOf(q)>-1)?'':'none';
     });
   });}
   var curType='', curPayer='';
@@ -1434,8 +1722,14 @@ _EXPLORE_SCRIPT = """<script>
 </script>"""
 
 
-def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float, script: bool = True) -> str:
-    """Full strip markup (caption + svg + notes + detail panel + script)."""
+def _strip_block(
+    codes,
+    rows_by_code: dict[str, list[dict]],
+    xmax_by_code: dict[str, float],
+    script: bool = True,
+    payer: str | None = None,
+) -> str:
+    """Full strip markup (caption + svg + notes + stack data + script)."""
     code_groups: dict[str, list[dict]] = {}
     for c in codes:
         by_type: dict[str, list[dict]] = {}
@@ -1445,11 +1739,12 @@ def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float, script
             {"rtype": t, "rows": rs}
             for t, rs in sorted(by_type.items(), key=lambda kv: (kv[0] != "negotiated", kv[0]))
         ]
-    svg, notes = _strip_svg(code_groups, xmax, {c.code: c.code_system for c in codes})
+    svg, notes, data_script = _strip_svg(code_groups, xmax_by_code, {c.code: c.code_system for c in codes}, payer=payer)
     note_html = "".join(f"<p class='note'>{html.escape(n)}</p>" for n in notes)
     return (
         f"<p>{_STRIP_CAPTION}</p>"
         + svg
+        + data_script
         + note_html
         + ('<div id="tip" role="status"></div>' if script else "")
         + (_EXPLORE_SCRIPT if script else "")
@@ -1747,7 +2042,7 @@ delayed, and CMS decides what scales.</p>
 
 
 @app.get("/code/{code}", response_class=HTMLResponse)
-def code_page(code: str, payer: str | None = None) -> str:
+def code_page(code: str, payer: str | None = None, rate: float | None = None) -> str:
     if not _has_data():
         return f"<html><body style='font-family:system-ui'><h1>{html.escape(code)}</h1><p>No data pulled yet.</p></body></html>"
     codes_cfg = {c.code: c for c in load_codes()}
@@ -1831,12 +2126,25 @@ def code_page(code: str, payer: str | None = None) -> str:
             )
             + "</table></div>"
         )
+    table_rows = rows
+    rate_note = ""
+    if rate is not None:
+        table_rows = [
+            r for r in rows
+            if r.get("negotiated_rate") is not None and abs(float(r["negotiated_rate"]) - rate) < 0.005
+        ]
+        clear_q = f"?payer={html.escape(payer)}" if payer else ""
+        rate_note = (
+            f"<p class='coverage'>Only rates of exactly ${rate:,.2f} are listed below "
+            f"({len(table_rows):,} of {len(rows):,} rates for this code). "
+            f"<a href='/code/{html.escape(code)}{clear_q}'>Show every rate for this code</a>.</p>"
+        )
     trs = "".join(
         "<tr><td>{p}</td><td>${v:,.2f}</td><td>{t}</td><td>{prov}</td><td>{tin}</td><td><a href='{src}'>source file</a></td></tr>".format(
             p=html.escape(str(r["payer"])), v=r["negotiated_rate"] or 0, t=html.escape(str(r["negotiated_type"])),
             prov=html.escape(str(r["provider_name"])), tin=html.escape(str(r["tin"])), src=html.escape(str(r["source_url"])),
         )
-        for r in rows[:200]
+        for r in table_rows[:200]
     )
     table = "<div class='table-wrap'><table><tr><th>Payer</th><th>Rate</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>" + trs + "</table></div>"
     csv_link = f"/api/rates/{html.escape(code)}.csv" + (f"?payer={html.escape(payer)}" if payer else "")
@@ -1849,7 +2157,7 @@ def code_page(code: str, payer: str | None = None) -> str:
         f"<h2>By payer</h2>{whiskers}{scale_note}"
         f"<h2>The rates themselves</h2>{facets}"
         f"{breakdown}"
-        f"<h2>See the numbers ({shown})</h2>{table}"
+        f"<h2>See the numbers ({shown})</h2>{rate_note}{table}"
         f"<p class='note'>Rates are sorted low to high as stored. Each rate links to the payer file it came from. "
         f"Download: <a href='{csv_link}'>these rates as CSV</a> · <a href='/api/rates/{html.escape(code)}'>JSON</a>. First 200 rows shown; the CSV and JSON carry up to 500.</p>"
         + '<div id="tip" role="status"></div>' + _EXPLORE_SCRIPT + "</div></body></html>"
