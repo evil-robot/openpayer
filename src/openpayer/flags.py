@@ -54,6 +54,32 @@ FLAG_NOTE = (
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
+# The enforcement lever each flag feeds. Phrased as what the flag hands
+# a reviewer, never as what CMS will do: CMS makes the call.
+LEVER = {
+    "median_far_above_medicare": (
+        "Hands program integrity a substantiation demand: the payer documents the contract basis for a "
+        "median this far above the federal schedule, with the peer-payer comparison attached."
+    ),
+    "extreme_rates": (
+        "Hands program integrity the same demand with a shorter fuse: individual rates at ten times the "
+        "schedule get a documented contract or a corrected file."
+    ),
+    "placeholder_rates": (
+        "Hands transparency enforcement a file-level case: the published file itself is the problem, "
+        "and no claim has to exist before anyone can act."
+    ),
+    "single_amount_many_groups": (
+        "Hands the payer a substantiation request: confirm in writing that the amount is a standard "
+        "schedule, or show the negotiation the file claims happened."
+    ),
+    "code_not_published": (
+        "Hands CMS a completeness check against the payer's own index. If the code is truly absent, "
+        "the gap is a compliance matter under the transparency rules."
+    ),
+}
+
+
 # The benign explanation a reviewer should test first, and what evidence
 # clears the flag. Written before anyone at CMS has to ask.
 CLEARS_IF = {
@@ -112,6 +138,7 @@ def compute_flags(rates: list[dict]) -> list[dict]:
                 "evidence": evidence,
                 "medicare_rate": reference.medicare_rate(code),
                 "clears_if": CLEARS_IF[kind],
+                "lever": LEVER[kind],
                 "note": FLAG_NOTE,
             }
         )

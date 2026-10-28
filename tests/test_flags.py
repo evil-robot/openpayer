@@ -23,6 +23,7 @@ def test_every_flag_carries_its_clearing_test():
     rows = [rate("PayerA", "99213", "negotiated", 500.0, tin=f"{i}") for i in range(5)]
     fs = flags.compute_flags(rows)
     assert fs and all(f["clears_if"] for f in fs)
+    assert all(f["lever"] for f in fs)
 
 
 def test_nppes_lookup_contract():

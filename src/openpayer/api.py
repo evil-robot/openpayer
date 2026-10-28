@@ -262,6 +262,10 @@ h1.hero{font-size:clamp(2rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-0.02
 .mfill{background:var(--ink);height:14px;border-radius:3px}
 .mstat{font-size:.85rem;color:var(--muted);line-height:1.5}
 .mstat span{display:block}
+.chain{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:1rem 0}
+.chain div{background:#fff;padding:.85rem 1rem;font-size:.92rem;line-height:1.45}
+.chain strong{display:block;font-size:.98rem}
+@media (max-width:700px){.chain{grid-template-columns:1fr}}
 @media (max-width:700px){.mrow{grid-template-columns:1fr;gap:.3rem}}
 @media (max-width:700px){.proof{grid-template-columns:1fr}.answerband{grid-template-columns:1fr}}
 #tip.pinned{pointer-events:auto}
@@ -390,7 +394,7 @@ def _header(request: Request) -> str:
     )
     return (
         "<header class='site-header'><div class='wrap'>"
-        "<a class='brand' href='/'>OpenPayer</a>"
+        "<a class='brand' href='/'>OpenPayer</a><span class='brand-sub'>rate evidence for fraud, waste, and abuse review</span>"
         f"<span class='head-right'>{right}</span></div></header>"
     )
 
@@ -528,6 +532,9 @@ def _flags_section() -> str:
         f"conversion factor ${info.get('conversion_factor')}. Patterns over the thresholds published at the top of "
         "<code>flags.py</code> in the repo are listed here, with the counts that produced them. "
         "Download: <a href='/api/flags'>flags JSON</a> · <a href='/api/flags.csv'>flags CSV</a>.</p>"
+        "<p>CMS has said it is done playing catch-up and is deploying data analytics to stop fraud before a dollar "
+        "leaves the building (Department of Justice, 2026 National Health Care Fraud Takedown, June 23, 2026). "
+        "This corpus works in that order: the filed rate exists before any claim does, so the flag does too.</p>"
         f"<p class='note'>{html.escape(_flags.FLAG_NOTE)}</p>"
     ]
     if not computed:
@@ -651,6 +658,7 @@ def _flag_dossier(f: dict) -> str:
         "<div class='table-wrap'><table><tr><th>Measure</th><th>Value</th></tr>" + ev_items + "</table></div>"
         + math_block
         + f"<h2>What would clear this flag</h2><p>{html.escape(f.get('clears_if') or '')}</p>"
+        + f"<h2>Where this goes next</h2><p>{html.escape(f.get('lever') or '')} What happens after review is not this page's call: CMS, HHS-OIG, a state Medicaid Fraud Control Unit, or the payer's own integrity team decides.</p>"
         + publishers + rates_block + geo_block
         + "<p class='note'>Every figure on this page is computed from rates the payer published, each linked to its source file above. "
         "Counts are as stored in the corpus today; a deeper pull can change them, and the corpus meter on the home page says how deep the pull is.</p>"
@@ -861,9 +869,16 @@ def home(request: Request) -> str:
         "<div><strong>Flags, not verdicts</strong>Unusual patterns are listed as review flags with the evidence beside them. Filed rates are not claims, so nothing here accuses anyone. It tells a reviewer where to look first.</div>"
         "</div>"
     )
+    chain = (
+        "<div class='chain'>"
+        "<div><strong>1 · The rate, as filed</strong>Payers publish contracted rates under federal transparency rules. This site reads those files for eight billing codes. Public data: no patient, no claim, no record access.</div>"
+        "<div><strong>2 · The flag</strong>Each rate is measured against the Medicare fee schedule and against peer payers. Patterns over the published thresholds become review flags, each with its counts and the file it came from.</div>"
+        "<div><strong>3 · The record check</strong>A flag is a reason to hold a provider's claims and check them against the patient's own clinical record before payment. That review is MedTruth's. CMS makes every call.</div>"
+        "</div>"
+    )
     return (
         f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
-        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{_corpus_meter(inv, rows, len(codes))}{_flags_section()}"
+        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{chain}{_corpus_meter(inv, rows, len(codes))}{_flags_section()}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
@@ -1596,7 +1611,7 @@ def api_flags_csv():
     flat = [{**f, "evidence": _json.dumps(f["evidence"])} for f in computed]
     return _csv_response(
         flat,
-        ["severity", "payer", "billing_code", "kind", "medicare_rate", "evidence", "clears_if", "note"],
+        ["severity", "payer", "billing_code", "kind", "medicare_rate", "evidence", "clears_if", "lever", "note"],
         "openpayer-flags.csv",
     )
 
