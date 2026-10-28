@@ -432,6 +432,11 @@ def _freshness(detail: dict) -> tuple[str, str]:
         age = (date.today() - date.fromisoformat(idx)).days
     except ValueError:
         return ("Pulled. Payer index date not recorded.", "")
+    if age < 0:
+        return (
+            f"Fresh. Index is dated {idx}, {-age} days from now: the payer posted its next monthly index before the month began.",
+            "fresh-fresh",
+        )
     if age <= 120:
         return (f"Fresh. Index is {age} days old, inside the quarterly cycle.", "fresh-fresh")
     return (f"Past the quarterly cycle. Index is {age} days old, rates may have changed in newer files.", "fresh-stale")
@@ -486,8 +491,10 @@ def _corpus_meter(inv: dict, summary_rows: list[dict], n_codes: int) -> str:
                 age = None
             if age is None:
                 fresh = f"<span>Pulled {html.escape(pulled)}. Index date not recorded.</span>"
+            elif age < 0:
+                fresh = f"<span class='fresh-fresh'>Index dated {html.escape(idx)}, {-age} days from now: the payer posted next month's index early.</span>"
             elif age <= 120:
-                fresh = f"<span class='fresh-fresh'>Fresh: index {html.escape(idx)}, {max(age, 0)} days old.</span>"
+                fresh = f"<span class='fresh-fresh'>Fresh: index {html.escape(idx)}, {age} days old.</span>"
             else:
                 fresh = f"<span class='fresh-stale'>Past the quarterly cycle: index {html.escape(idx)}, {age} days old.</span>"
         pct = (nrows / max_rows * 100) if nrows else 0.0

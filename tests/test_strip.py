@@ -85,6 +85,25 @@ def test_many_distinct_prices_switch_to_counted_bins():
     assert "40 distinct" in svg
 
 
+def test_future_index_date_is_named_not_clamped_to_zero():
+    from datetime import date, timedelta
+
+    from openpayer.api import _freshness
+
+    future = (date.today() + timedelta(days=4)).isoformat()
+    text, cls = _freshness(
+        {
+            "configured": True,
+            "pulled_at": date.today().isoformat(),
+            "index_last_updated_on": future,
+            "index_url": "https://example.com/index.json",
+        }
+    )
+    assert "4 days from now" in text
+    assert "0 days old" not in text
+    assert cls == "fresh-fresh"
+
+
 def test_corpus_total_line_explains_itself():
     line = _corpus_total_line({"total_rows": 48242, "source_files": 79, "provider_groups": 2021})
     assert "48,242 single prices" in line
