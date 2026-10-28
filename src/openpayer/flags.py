@@ -54,6 +54,39 @@ FLAG_NOTE = (
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
+# The benign explanation a reviewer should test first, and what evidence
+# clears the flag. Written before anyone at CMS has to ask.
+CLEARS_IF = {
+    "median_far_above_medicare": (
+        "First benign explanation to check: a legitimately rich contract for a scarce service, or a small "
+        "sample resting on a handful of groups. Clears if the payer documents the contract basis, or if a "
+        "deeper pull moves the median back toward peer payers. A median this far out on a thin n is a "
+        "question about depth before it is a question about the payer."
+    ),
+    "extreme_rates": (
+        "First benign explanation to check: keying or unit errors in the payer's own file, or a handful of "
+        "genuinely exceptional contracts. Clears if the payer corrects the file, or documents the contracts. "
+        "Rates this far above the federal schedule should not survive contact with the payer unexplained."
+    ),
+    "placeholder_rates": (
+        "First benign explanation to check: almost none. A dollar-or-less price on a covered service is "
+        "filler where a negotiated amount belongs. Clears only if the payer republishes the file with real "
+        "amounts, or shows the service is genuinely priced at a nominal rate by contract."
+    ),
+    "single_amount_many_groups": (
+        "First benign explanation to check: a standard fee schedule applied uniformly, which is legal and "
+        "common. Clears if the payer confirms the amount is its standard schedule rather than a negotiated "
+        "rate. It stays on the list because the file labels these as negotiated arrangements, and one "
+        "amount across hundreds of groups is not what negotiation usually produces."
+    ),
+    "code_not_published": (
+        "First benign explanation to check: our own partial pull. A bounded pass reads a sample of a "
+        "payer's files, and absence in the corpus is not yet absence in the payer's index. Clears when a "
+        "deeper pull still finds nothing, at which point the gap belongs to the payer, and transparency "
+        "rules require the file to exist."
+    ),
+}
+
 
 def compute_flags(rates: list[dict]) -> list[dict]:
     """Compute review flags from rate rows.
@@ -78,6 +111,7 @@ def compute_flags(rates: list[dict]) -> list[dict]:
                 "billing_code": code,
                 "evidence": evidence,
                 "medicare_rate": reference.medicare_rate(code),
+                "clears_if": CLEARS_IF[kind],
                 "note": FLAG_NOTE,
             }
         )

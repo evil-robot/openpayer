@@ -19,6 +19,19 @@ def kinds(fs):
     return {(f["kind"], f["payer"], f["billing_code"]) for f in fs}
 
 
+def test_every_flag_carries_its_clearing_test():
+    rows = [rate("PayerA", "99213", "negotiated", 500.0, tin=f"{i}") for i in range(5)]
+    fs = flags.compute_flags(rows)
+    assert fs and all(f["clears_if"] for f in fs)
+
+
+def test_nppes_lookup_contract():
+    assert reference.nppes_lookup("") is None
+    assert reference.nppes_lookup("9999999999") is None
+    info = reference.nppes_info()
+    assert "source" in info and "npis_matched" in info
+
+
 def test_medicare_reference_loaded():
     assert reference.medicare_rate("99213") == 95.19
     assert reference.medicare_rate("G2212") == 34.07

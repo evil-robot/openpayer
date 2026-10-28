@@ -6,8 +6,8 @@ from __future__ import annotations
    practice state/ZIP, and NUCC taxonomy (specialty) per NPI. Code independent,
    but we only join NPIs that appear in the filtered rates, so the join stays
    small. Source: https://download.cms.gov/nppes/NPI_Files.html
-   Status: not loaded yet; nppes_lookup returns None and the site says
-   "provider not named in file" until it lands.
+   Loaded: scripts/pull_nppes.py filters the monthly dissemination file
+   to NPIs appearing in pulled rates and writes data/reference/nppes.json.
 
 2. Medicare Physician Fee Schedule (MPFS): loaded. CMS publishes the
    Relative Value File (RVU26A, January 2026 release); scripts/pull_mpfs.py
@@ -24,9 +24,28 @@ from pathlib import Path
 _MPFS_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "mpfs.json"
 
 
+_NPPES_PATH = Path(__file__).resolve().parents[2] / "data" / "reference" / "nppes.json"
+
+
+@lru_cache(maxsize=1)
+def _nppes() -> dict:
+    if not _NPPES_PATH.exists():
+        return {}
+    return json.loads(_NPPES_PATH.read_text())
+
+
+def nppes_info() -> dict:
+    """Provenance for the loaded NPPES extract: source and match counts."""
+    d = _nppes()
+    return {k: d.get(k) for k in ("source", "source_url", "npis_wanted", "npis_matched")}
+
+
 def nppes_lookup(npi: str) -> dict | None:
     """Return {name, city, state, zip, taxonomy} for an NPI, or None if not loaded."""
-    return None
+    if not npi:
+        return None
+    row = _nppes().get("npis", {}).get(str(npi).strip())
+    return dict(row) if row else None
 
 
 @lru_cache(maxsize=1)

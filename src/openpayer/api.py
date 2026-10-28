@@ -5,7 +5,10 @@ import html
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 
+from urllib.parse import urlencode as _urlencode
+
 from . import auth as authmod
+from . import reference
 from .benchmarks import data_inventory, flags_input, rates_for_code, summary_all_payers, summary_by_code_payer
 from .config import load_codes
 from .store import DB_PATH
@@ -502,6 +505,14 @@ def _flag_evidence(f: dict) -> str:
     return ""
 
 
+def _pct_text(code: str, amount) -> str:
+    """Amount as a percent of the Medicare national rate, or empty."""
+    from . import reference as _ref
+
+    pct = _ref.percent_of_medicare(code, float(amount or 0))
+    return f"{pct:,.0f}% of Medicare" if pct is not None else ""
+
+
 def _flags_section() -> str:
     """Fraud, waste, and abuse review flags, computed live from the corpus."""
     from . import flags as _flags
@@ -531,10 +542,11 @@ def _flags_section() -> str:
         med = f"${f['medicare_rate']:,.2f}" if f.get("medicare_rate") else "not loaded"
         parts.append(
             "<tr><td>{sev}</td><td>{payer}</td><td><a href='/code/{code}?payer={payer}'>{code}</a></td>"
-            "<td>{label}</td><td>{ev}</td><td class='n'>{med}</td></tr>".format(
+            "<td><a href='{dossier}'>{label}</a></td><td>{ev}</td><td class='n'>{med}</td></tr>".format(
                 sev=html.escape(f["severity"].capitalize()),
                 payer=html.escape(f["payer"]),
                 code=html.escape(f["billing_code"]),
+                dossier="/flag?" + _urlencode({"payer": f["payer"], "code": f["billing_code"], "kind": f["kind"]}),
                 label=html.escape(_FLAG_LABELS.get(f["kind"], f["kind"])),
                 ev=html.escape(_flag_evidence(f)),
                 med=med,
@@ -542,6 +554,108 @@ def _flags_section() -> str:
         )
     parts.append("</tbody></table></div>")
     return "".join(parts)
+
+
+def _flag_dossier(f: dict) -> str:
+    """One flag as a hand-off page: pattern, math, clearing test, rows.
+
+    Built to be forwarded to a reviewer (CMS program integrity, HHS-OIG,
+    a state Medicaid Fraud Control Unit, a payer's own integrity team).
+    Print-clean. Every rate row links to the payer file it came from.
+    """
+    from collections import Counter
+    from datetime import date as _date
+
+    from . import reference as _ref
+
+    payer, code, kind = f["payer"], f["billing_code"], f["kind"]
+    label = _FLAG_LABELS.get(kind, kind)
+    rows = rates_for_code(code, payer=payer, limit=500) if kind != "code_not_published" else []
+    dollar = [r for r in rows if r.get("negotiated_rate") is not None]
+    med_rate = f.get("medicare_rate")
+
+    if kind in ("median_far_above_medicare", "extreme_rates"):
+        show = sorted(dollar, key=lambda r: -float(r["negotiated_rate"]))[:50]
+        shown_note = f"Highest {len(show)} of {len(dollar)} stored rates for this payer and code, highest first."
+    elif kind == "placeholder_rates":
+        show = [r for r in dollar if float(r["negotiated_rate"]) <= 1.0][:50]
+        shown_note = f"Showing {len(show)} of the rates priced at $1.00 or less."
+    elif kind == "single_amount_many_groups":
+        amount = float(f["evidence"].get("amount") or 0)
+        show = [r for r in dollar if float(r["negotiated_rate"]) == amount][:50]
+        shown_note = f"Showing {len(show)} provider groups at the single amount of ${amount:,.2f}."
+    else:
+        show = []
+        shown_note = ""
+
+    trs = "".join(
+        "<tr><td>${v:,.2f}</td><td class='n'>{pct}</td><td>{t}</td><td>{prov}</td><td>{tin}</td>"
+        "<td><a href='{src}'>source file</a></td></tr>".format(
+            v=float(r["negotiated_rate"]), pct=html.escape(_pct_text(code, r["negotiated_rate"])),
+            t=html.escape(str(r["negotiated_type"])), prov=html.escape(str(r["provider_name"])),
+            tin=html.escape(str(r["tin"])), src=html.escape(str(r["source_url"])),
+        )
+        for r in show
+    )
+    rates_block = (
+        f"<h2>The rates underneath</h2><p>{html.escape(shown_note)}</p>"
+        "<div class='table-wrap'><table><tr><th>Rate</th><th>% of Medicare</th><th>Type</th><th>Provider</th><th>TIN</th><th>Lineage</th></tr>"
+        + trs + "</table></div>"
+        if show else ""
+    )
+
+    states: Counter = Counter()
+    named = 0
+    for r in dollar:
+        for one in str(r.get("npi") or "").split(","):
+            hit = _ref.nppes_lookup(one)
+            if hit:
+                named += 1
+                if hit.get("state"):
+                    states[str(hit["state"])] += 1
+    if named:
+        geo = ", ".join(f"{s}: {n}" for s, n in states.most_common(12))
+        geo_block = f"<h2>Where these rates sit</h2><p>Practice states from the NPI registry for {named} matched rates: {html.escape(geo)}.</p>"
+    else:
+        geo_block = (
+            "<h2>Where these rates sit</h2><p>Geography joins from the NPI registry (NPPES) and is not loaded yet, "
+            "so no state is claimed here. Provider names in the table are as the payer printed them, or unnamed.</p>"
+        )
+
+    ev_items = "".join(
+        f"<tr><td>{html.escape(str(k).replace('_', ' '))}</td><td class='n'>{html.escape(str(v))}</td></tr>"
+        for k, v in f["evidence"].items()
+    )
+    publishers = ""
+    if kind == "code_not_published":
+        others = sorted({str(r["payer"]) for r in summary_by_code_payer() if str(r["billing_code"]) == code})
+        publishers = (
+            "<h2>Who does publish this code</h2><p>"
+            + ", ".join(f"<a href='/code/{html.escape(code)}?payer={html.escape(p)}'>{html.escape(p)}</a>" for p in others)
+            + ". Their rates are one click from the files behind them.</p>"
+        )
+    info = _ref.mpfs_info()
+    math_block = (
+        f"<h2>The Medicare math</h2><p>Medicare national rate for {html.escape(code)}: "
+        + (f"<strong>${med_rate:,.2f}</strong>" if med_rate else "not loaded")
+        + f". Basis: {html.escape(str(info.get('basis') or ''))} Source: {html.escape(str(info.get('source') or ''))} "
+        f"(conversion factor ${info.get('conversion_factor')}). Locality adjustment is not applied; the ruler is national.</p>"
+    )
+    return (
+        f"<html><head><title>Flag: {html.escape(label)} | OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><div class='wrap'>"
+        f"<p><a href='/'>All codes and flags</a></p>"
+        f"<h1>{html.escape(label)}</h1>"
+        f"<p class='lede-sm'>{html.escape(f['severity'].capitalize())} flag · {html.escape(payer)} · code {html.escape(code)} · prepared {_date.today().isoformat()} from the live corpus</p>"
+        f"<p class='note'>{html.escape(f['note'])}</p>"
+        f"<h2>What we saw</h2><p>{html.escape(_flag_evidence(f))}</p>"
+        "<div class='table-wrap'><table><tr><th>Measure</th><th>Value</th></tr>" + ev_items + "</table></div>"
+        + math_block
+        + f"<h2>What would clear this flag</h2><p>{html.escape(f.get('clears_if') or '')}</p>"
+        + publishers + rates_block + geo_block
+        + "<p class='note'>Every figure on this page is computed from rates the payer published, each linked to its source file above. "
+        "Counts are as stored in the corpus today; a deeper pull can change them, and the corpus meter on the home page says how deep the pull is.</p>"
+        "</div></body></html>"
+    )
 
 
 def _sources_section() -> str:
@@ -1110,7 +1224,8 @@ def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
         else:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
-        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,}</text>')
+        pct = _pct_text(str(r["billing_code"]), med)
+        parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,}{(" · " + pct) if pct else ""}</text>')
         y += row_h
     for payer, types in by_payer.items():
         if "negotiated" in types and "fee schedule" in types:
@@ -1303,6 +1418,27 @@ def _strip_block(codes, rows_by_code: dict[str, list[dict]], xmax: float, script
     )
 
 
+@app.get("/flag", response_class=HTMLResponse)
+def flag_page(payer: str, code: str, kind: str) -> str:
+    from . import flags as _flags
+
+    if not _has_data():
+        return f"<html><body style='font-family:system-ui'><h1>Flag</h1><p>No data pulled yet.</p></body></html>"
+    match = next(
+        (f for f in _flags.compute_flags(flags_input())
+         if f["payer"] == payer and f["billing_code"] == code and f["kind"] == kind),
+        None,
+    )
+    if match is None:
+        return (
+            f"<html><head><title>Flag not found | OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><div class='wrap'>"
+            "<p><a href='/'>All codes and flags</a></p><h1>No such flag in the current corpus</h1>"
+            "<p>Flags are computed live from the stored rates. This one is not over its threshold today, "
+            "or the payer, code, and signal do not match a computed flag.</p></div></body></html>"
+        )
+    return _flag_dossier(match)
+
+
 @app.get("/code/{code}", response_class=HTMLResponse)
 def code_page(code: str, payer: str | None = None) -> str:
     if not _has_data():
@@ -1344,9 +1480,14 @@ def code_page(code: str, payer: str | None = None) -> str:
             )
         else:
             who = f"{r['n_payers']} payers" if not payer else html.escape(payer)
+            pct = _pct_text(code, r["median"])
+            mrate = reference.medicare_rate(code)
+            medline = (
+                f"<span class='lab'>Medicare national ${mrate:,.2f} · this median is {pct}</span>" if pct and mrate else ""
+            )
             cells.append(
                 f"<div class='cell'><span class='lab'>{html.escape(rtype)}</span><div class='med'>${float(r['median'] or 0):,.0f}</div>"
-                f"<span class='lab'>median · middle half ${float(r['p25'] or 0):,.0f} to ${float(r['p75'] or 0):,.0f} · n={r['n_rates']} · {who}</span></div>"
+                f"<span class='lab'>median · middle half ${float(r['p25'] or 0):,.0f} to ${float(r['p75'] or 0):,.0f} · n={r['n_rates']} · {who}</span>{medline}</div>"
             )
     answer = "<div class='answerband'>" + "".join(cells) + "</div>"
 
@@ -1372,11 +1513,12 @@ def code_page(code: str, payer: str | None = None) -> str:
     breakdown = ""
     if bench:
         breakdown = (
-            "<h2>Median by payer</h2><div class='table-wrap'><table><tr><th>Payer</th><th>Rate type</th><th>Rates</th><th>p25</th><th>Median</th><th>p75</th></tr>"
+            "<h2>Median by payer</h2><div class='table-wrap'><table><tr><th>Payer</th><th>Rate type</th><th>Rates</th><th>p25</th><th>Median</th><th>p75</th><th>% of Medicare</th></tr>"
             + "".join(
-                "<tr><td>{p}</td><td>{t}</td><td class='n'>{n}</td><td class='n'>${a:,.2f}</td><td class='n'>${m:,.2f}</td><td class='n'>${b:,.2f}</td></tr>".format(
+                "<tr><td>{p}</td><td>{t}</td><td class='n'>{n}</td><td class='n'>${a:,.2f}</td><td class='n'>${m:,.2f}</td><td class='n'>${b:,.2f}</td><td class='n'>{pct}</td></tr>".format(
                     p=html.escape(str(r["payer"])), t=html.escape(str(r["negotiated_type"])), n=r["n_rates"],
                     a=r["p25"] or 0, m=r["median"] or 0, b=r["p75"] or 0,
+                    pct=html.escape(_pct_text(code, r["median"])),
                 )
                 for r in bench
             )
@@ -1454,7 +1596,7 @@ def api_flags_csv():
     flat = [{**f, "evidence": _json.dumps(f["evidence"])} for f in computed]
     return _csv_response(
         flat,
-        ["severity", "payer", "billing_code", "kind", "medicare_rate", "evidence", "note"],
+        ["severity", "payer", "billing_code", "kind", "medicare_rate", "evidence", "clears_if", "note"],
         "openpayer-flags.csv",
     )
 
