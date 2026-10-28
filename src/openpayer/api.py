@@ -250,6 +250,16 @@ h1.hero{font-size:clamp(2rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-0.02
 .code-head h1{font-size:clamp(2rem,4vw,2.75rem);line-height:1.1;letter-spacing:-0.02em;margin:.75rem 0 .35rem}
 .code-head .cnum{font-family:var(--mono);font-weight:700}
 .cellbar{display:block;height:6px;background:#9CA3AF;margin-bottom:2px}
+.meter{border:1px solid var(--rule);border-radius:12px;padding:1rem 1.1rem .6rem;margin:1.2rem 0;background:#fff}
+.meter h2{border-top:none;margin-top:.2rem;padding-top:0}
+.mrow{display:grid;grid-template-columns:180px 1fr 290px;gap:.9rem;align-items:center;padding:.5rem 0;border-top:1px solid var(--rule)}
+.mname{font-weight:600;font-size:.95rem;line-height:1.35}
+.mname span{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.mtrack{background:#F3F4F6;height:14px;border-radius:3px}
+.mfill{background:var(--ink);height:14px;border-radius:3px}
+.mstat{font-size:.85rem;color:var(--muted);line-height:1.5}
+.mstat span{display:block}
+@media (max-width:700px){.mrow{grid-template-columns:1fr;gap:.3rem}}
 @media (max-width:700px){.proof{grid-template-columns:1fr}.answerband{grid-template-columns:1fr}}
 #tip.pinned{pointer-events:auto}
 #tip strong{font-size:1.05rem}#tip .src{color:var(--st-gray-300);font-size:.74rem;word-break:break-all}
@@ -397,6 +407,73 @@ def _freshness(detail: dict) -> tuple[str, str]:
     if age <= 120:
         return (f"Fresh. Index is {age} days old, inside the quarterly cycle.", "fresh-fresh")
     return (f"Past the quarterly cycle. Index is {age} days old, rates may have changed in newer files.", "fresh-stale")
+
+
+def _corpus_meter(inv: dict, summary_rows: list[dict], n_codes: int) -> str:
+    """Front-page data legend: one bar per configured source.
+
+    Bar length is rate rows kept in the corpus, scaled to the largest
+    source. Freshness is the payer's own index date against today
+    (quarterly cycle). A source with no rows says so in words; its bar
+    stays empty rather than borrowing a minimum width.
+    """
+    from datetime import date as _date
+
+    from .benchmarks import sources_detail
+
+    by_payer = {p["payer"]: p for p in inv.get("by_payer", [])}
+    codes_by_payer: dict[str, set] = {}
+    for r in summary_rows:
+        codes_by_payer.setdefault(str(r["payer"]), set()).add(str(r["billing_code"]))
+    entries = []
+    for d in sources_detail():
+        ip = by_payer.get(d["payer"], {})
+        entries.append((d, int(ip.get("rows") or 0), int(ip.get("files") or 0)))
+    entries.sort(key=lambda e: (-e[1], e[0]["payer"]))
+    max_rows = max((e[1] for e in entries), default=0) or 1
+    parts = [
+        "<section class='meter' aria-label='How much data from each source'>"
+        "<h2>The corpus, source by source</h2>"
+        "<p class='note'>Every rate here came from one of these published payer files, for the configured codes only. "
+        "Bar length is rate rows kept, scaled to the largest source. Freshness compares the payer's own index date with today; "
+        "payers refresh their files quarterly.</p>"
+    ]
+    for d, nrows, nfiles in entries:
+        payer = html.escape(str(d["payer"]))
+        idx = str(d.get("index_last_updated_on") or "")
+        pulled = str(d.get("pulled_at") or "")[:10]
+        ncodes = len(codes_by_payer.get(str(d["payer"]), ()))
+        if not d.get("configured"):
+            fresh = "<span>Not configured: no published index address found yet.</span>"
+        elif nrows == 0:
+            fresh = "<span>Searched, no rows kept yet.</span>"
+        else:
+            try:
+                age = (_date.today() - _date.fromisoformat(idx)).days
+            except ValueError:
+                age = None
+            if age is None:
+                fresh = "<span>Pulled. Index date not recorded.</span>"
+            elif age <= 120:
+                fresh = f"<span class='fresh-fresh'>Fresh: index {html.escape(idx)}, {max(age, 0)} days old.</span>"
+            else:
+                fresh = f"<span class='fresh-stale'>Past the quarterly cycle: index {html.escape(idx)}, {age} days old.</span>"
+        pct = (nrows / max_rows * 100) if nrows else 0.0
+        if nrows:
+            stat = f"{nrows:,} rate rows · {nfiles} kept files · {ncodes} of {n_codes} codes · pulled {html.escape(pulled) or 'never'}"
+        else:
+            stat = "0 rate rows kept"
+        parts.append(
+            f"<div class='mrow'><div class='mname'>{payer}<span>Transparency in Coverage file index</span></div>"
+            f"<div class='mtrack'><div class='mfill' style='width:{pct:.1f}%'></div></div>"
+            f"<div class='mstat'><span class='num'>{html.escape(stat)}</span>{fresh}</div></div>"
+        )
+    parts.append(
+        f"<p class='note'>Total in the corpus: {int(inv.get('total_rows') or 0):,} rate rows from "
+        f"{int(inv.get('source_files') or 0)} kept files, {int(inv.get('provider_groups') or 0):,} provider groups by tax ID. "
+        "The full source table with index links sits further down this page.</p></section>"
+    )
+    return "".join(parts)
 
 
 def _sources_section() -> str:
@@ -603,7 +680,7 @@ def home(request: Request) -> str:
     )
     return (
         f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
-        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}"
+        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{_corpus_meter(inv, rows, len(codes))}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
