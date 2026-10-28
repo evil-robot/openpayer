@@ -753,7 +753,12 @@ def home(request: Request) -> str:
         rs = [r for r in rates_for_code(c.code, limit=2000) if r.get("negotiated_rate") is not None]
         all_rows_by_code[c.code] = rs
         all_vals.extend(float(r["negotiated_rate"]) for r in rs)
-    xmax = max(25.0, (int(max(all_vals) / 25) + 1) * 25) if all_vals else 100.0
+    # The scale must cover the summary whiskers too: the dot sample is
+    # capped per code, and a p75 from the full summary can exceed every
+    # sampled value. A scale built from the sample alone clips the
+    # most expensive rows off the chart (Tufte review, 2026-10-28).
+    spread_peak = max((float(r["p75"] or r["median"] or 0) for r in rows), default=0.0)
+    xmax = max(25.0, (int(max([*all_vals, spread_peak]) / 25) + 1) * 25) if (all_vals or spread_peak) else 100.0
 
     def _money(v) -> str:
         return f"${(v or 0):,.2f}"
@@ -806,9 +811,12 @@ def home(request: Request) -> str:
         "Rate types are never pooled. Every row carries its count. Select a row label to open that code at that payer, where every rate sits with its source file. "
         "Vertical position inside a dot row further down is layout only. Horizontal position is dollars.</p>"
         + _payer_spread(rows, codes, xmax)
-        + "<h2>The consult family, step by step</h2>"
-        "<p>The six interprofessional consult codes in config order. One line per payer per rate type (solid negotiated, dashed fee schedule), "
-        "whiskers are the middle half. A missing code breaks the line. Nothing is drawn across a gap. 99213 and G2212 are not in this family.</p>"
+        + "<h2>The consult family, panel by panel</h2>"
+        "<p>One panel per code, one row per payer per rate type. The dot is the median (filled for negotiated, open for fee schedule), "
+        "the bar is the middle half, and the gold line is Medicare's national rate for that code. Nothing connects across codes, "
+        "because these are separate codes, not a trend. Where a payer files no rate, the row says so. "
+        "Source: payer Transparency in Coverage files as filed; Medicare Physician Fee Schedule 2026; "
+        "negotiated and fee schedule rates shown separately, never pooled. 99213 and G2212 are not in this family.</p>"
         + _family_ladder(rows, xmax)
         + "<h2>Every observed rate, payer by payer</h2>"
         + _strip_block(codes, all_rows_by_code, xmax, script=False)
@@ -1086,6 +1094,7 @@ def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
             parts.append(f'<g class="prow" data-code="{html.escape(c.code.lower())}" data-type="" data-payer=""><text x="{x0 + 6}" y="{y + 12}" font-size="11" fill="#374151">No dollar rates found in the files pulled so far</text><text x="{x0 + plot_w + 12}" y="{y + 12}" font-size="11" fill="#374151">n=0</text></g>')
             y += row_h
             continue
+        seen_spread: list[tuple[tuple, str]] = []
         for r in rows:
             med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
             mid = y + 11
@@ -1099,8 +1108,16 @@ def _payer_spread(summary_rows: list[dict], codes, xmax: float) -> str:
                 parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>{html.escape(payer)} {html.escape(c.code)} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
             else:
                 parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {html.escape(c.code)} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
+            stat = f"median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r['n_rates']):,}"
+            key = (round(med, 2), round(p25, 2), round(p75, 2), int(r["n_rates"]))
+            dup_of = next((p for k, p in seen_spread if k == key), None)
+            if dup_of:
+                stat += f" · same as {dup_of} above"
+            else:
+                stat += f" · {int(r['n_provider_groups']):,} groups"
+            seen_spread.append((key, payer))
             parts.append(
-                f'<a href="/code/{html.escape(c.code)}?payer={html.escape(payer)}"><text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,} · {int(r["n_provider_groups"]):,} groups</text></a>'
+                f'<a href="/code/{html.escape(c.code)}?payer={html.escape(payer)}"><text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">{html.escape(stat)}</text></a>'
             )
             parts.append("</g>")
             y += row_h
@@ -1113,98 +1130,88 @@ _FAMILY = ["99446", "99447", "99448", "99449", "99451", "99452"]
 
 
 def _family_ladder(summary_rows: list[dict], xmax: float) -> str:
-    """The interprofessional consult family, code by code.
+    """The interprofessional consult family as small multiples.
 
-    One line per payer per rate type across the six family codes in
-    config order. A missing code breaks the line: no segment is drawn
-    across a gap, and nothing is interpolated. The ladder carries its
-    own dollar scale, fitted to the family whiskers, so no line can
-    run off the top. Series labels sit in one column at the right,
-    spread apart so they never print over each other, with a thin
-    leader line back to the last point when a label had to move.
+    Tufte ruling (2026-10-28, on the rendered chart): the connected
+    ladder dies. Ten traced lines on one axis cannot be read back to
+    a payer, and segments between codes imply a continuum that does
+    not exist. Instead: one panel per code, one row per payer per
+    rate type inside it. Dot is the median (filled negotiated, open
+    fee schedule), horizontal bar is the middle half, gold hairline
+    is Medicare's national rate for that code. Nothing connects
+    across codes. A payer with no rate for the code gets the words
+    "no rate filed" and an empty row. The dollar scale is shared,
+    zero-based, and fitted to the family whiskers so no bar can run
+    off its panel.
     """
-    width, height = 1120, 360
-    left, right, top, bottom = 60, 300, 30, 48
-    plot_w = width - left - right
-    plot_h = height - top - bottom
+    from . import reference as _ref
 
-    by_key: dict[tuple[str, str], dict[str, dict]] = {}
+    width = 1120
+    cols, panel_w, panel_h, panel_top = 2, 560, 214, 6
+    label_w, plot_w = 168, 118
+    payers = sorted({str(r["payer"]) for r in summary_rows})
+    by_key: dict[tuple[str, str, str], dict] = {}
     for r in summary_rows:
         if str(r["billing_code"]) in _FAMILY:
-            by_key.setdefault((str(r["payer"]), str(r["negotiated_type"])), {})[str(r["billing_code"])] = r
+            by_key[(str(r["billing_code"]), str(r["payer"]), str(r["negotiated_type"]))] = r
     peak = max(
-        (float(r["p75"] or r["median"] or 0) for series in by_key.values() for r in series.values()),
+        (float(r["p75"] or r["median"] or 0) for r in by_key.values()),
         default=0.0,
     )
-    ymax = max(50.0, (int(peak / 25) + 1) * 25)
+    ymax = max(175.0, (int(peak / 25) + 1) * 25)
+    height = panel_top + panel_h * ((len(_FAMILY) + cols - 1) // cols)
+    notes = {c.code: c.note.replace("Interprofessional ", "").replace("Sample code: ", "") for c in load_codes()}
 
-    def X(i: int) -> float:
-        return left + (i / (len(_FAMILY) - 1)) * plot_w
-
-    def Y(v: float) -> float:
-        return top + plot_h - (min(v, ymax) / ymax) * plot_h
+    def X(px: float, v: float) -> float:
+        return px + label_w + 6 + (min(v, ymax) / ymax) * plot_w
 
     parts = [
         f'<svg class="strip" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Family ladder: median rate by interprofessional consult code, one line per payer and rate type, middle half whiskers, gaps where a payer publishes no rate">'
+        'aria-label="Consult family panels: one panel per code, one row per payer and rate type, dot is the median, bar is the middle half, gold line is the Medicare rate">'
     ]
-    step = 25 if ymax <= 200 else 50
-    tick = 0
-    while tick <= ymax:
-        parts.append(f'<line x1="{left}" y1="{Y(tick):.0f}" x2="{left + plot_w}" y2="{Y(tick):.0f}" stroke="#E5E7EB"/>')
-        parts.append(f'<text x="{left - 6}" y="{Y(tick) + 3:.0f}" font-size="10" fill="#374151" text-anchor="end">${tick:,.0f}</text>')
-        tick += step
-    for i, code in enumerate(_FAMILY):
-        parts.append(f'<text x="{X(i):.0f}" y="{height - 24}" font-size="11" font-weight="700" text-anchor="middle">{code}</text>')
-    labels: list[dict] = []
-    for (payer, rtype), series in sorted(by_key.items()):
-        pts = [(i, series[c]) for i, c in enumerate(_FAMILY) if c in series]
-        if not pts:
-            continue
-        parts.append(f'<g class="lrow" data-type="{html.escape(rtype)}" data-payer="{html.escape(payer)}">')
-        for (i1, r1), (i2, r2) in zip(pts, pts[1:]):
-            if i2 - i1 == 1:
-                dash = ' stroke-dasharray="5 4"' if rtype != "negotiated" else ""
-                parts.append(f'<line x1="{X(i1):.1f}" y1="{Y(float(r1["median"] or 0)):.1f}" x2="{X(i2):.1f}" y2="{Y(float(r2["median"] or 0)):.1f}" stroke="#111827" stroke-width="2"{dash}/>')
-        for i, r in pts:
-            med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
-            parts.append(f'<line x1="{X(i):.1f}" y1="{Y(p75):.1f}" x2="{X(i):.1f}" y2="{Y(p25):.1f}" stroke="#111827" stroke-width="1.2"/>')
-            if rtype == "negotiated":
-                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#111827"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
-            else:
-                parts.append(f'<circle cx="{X(i):.1f}" cy="{Y(med):.1f}" r="4.5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {_FAMILY[i]} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
-        parts.append("</g>")
-        li, lr = pts[-1]
-        total_n = sum(int(r["n_rates"]) for _, r in pts)
-        labels.append(
-            {
-                "y": Y(float(lr["median"] or 0)),
-                "x_end": X(li),
-                "text": f"{payer} · {rtype} · n={total_n:,}",
-                "type": rtype,
-                "payer": payer,
-            }
-        )
-    label_x = left + plot_w + 16
-    labels.sort(key=lambda z: z["y"])
-    gap = 16.0
-    lo, hi = top + 6, top + plot_h - 6
-    for z in labels:
-        z["ly"] = min(max(z["y"], lo), hi)
-    for a, b in zip(labels, labels[1:]):
-        b["ly"] = max(b["ly"], a["ly"] + gap)
-    for a, b in zip(reversed(labels), reversed(labels[:-1])):
-        b["ly"] = min(b["ly"], a["ly"] - gap)
-    for z in labels:
-        if abs(z["ly"] - z["y"]) > 3 or z["x_end"] < X(len(_FAMILY) - 1) - 1:
-            parts.append(f'<line x1="{z["x_end"] + 5:.1f}" y1="{z["y"]:.1f}" x2="{label_x - 4:.1f}" y2="{z["ly"]:.1f}" stroke="#9CA3AF" stroke-width="1"/>')
-        parts.append(
-            f'<g class="lrow" data-type="{html.escape(z["type"])}" data-payer="{html.escape(z["payer"])}">'
-            f'<text x="{label_x:.1f}" y="{z["ly"] + 3:.1f}" font-size="10.5">{html.escape(z["text"])}</text></g>'
-        )
+    ticks = list(range(0, int(ymax) + 1, 50))
+    for pi, code in enumerate(_FAMILY):
+        px = (pi % cols) * panel_w
+        py = panel_top + (pi // cols) * panel_h
+        med_rate = _ref.medicare_rate(code)
+        parts.append(f'<text x="{px + 2}" y="{py + 14}" font-size="11" font-weight="700">{code} · {html.escape(notes.get(code, ""))}</text>')
+        if med_rate:
+            parts.append(f'<line x1="{X(px, med_rate):.1f}" y1="{py + 20}" x2="{X(px, med_rate):.1f}" y2="{py + panel_h - 6}" stroke="#A16207" stroke-width="1"/>')
+            parts.append(f'<text x="{X(px, med_rate) + 3:.1f}" y="{py + 27}" font-size="8.5" fill="#A16207">Medicare ${med_rate:,.0f}</text>')
+        for t in ticks:
+            parts.append(f'<line x1="{X(px, t):.1f}" y1="{py + 20}" x2="{X(px, t):.1f}" y2="{py + panel_h - 6}" stroke="#F3F4F6"/>')
+            if pi < cols:
+                parts.append(f'<text x="{X(px, t):.1f}" y="{py + 10}" font-size="8.5" fill="#6B7280" text-anchor="middle">${t}</text>')
+        parts.append(f'<text x="{px + label_w + 12 + plot_w}" y="{py + 27}" font-size="8.5" fill="#6B7280">median · middle half · n</text>')
+        seen: list[tuple[tuple, str]] = []
+        ry = py + 34
+        for payer in payers:
+            for rtype in ("negotiated", "fee schedule"):
+                r = by_key.get((code, payer, rtype))
+                parts.append(f'<g class="prow" data-code="{code}" data-type="{html.escape(rtype)}" data-payer="{html.escape(payer)}">')
+                parts.append(f'<text x="{px + label_w}" y="{ry + 3}" font-size="9.5" text-anchor="end">{html.escape(payer)} · {html.escape(rtype)}</text>')
+                if r is None:
+                    parts.append(f'<text x="{px + label_w + 12}" y="{ry + 3}" font-size="9.5" fill="#6B7280">no rate filed</text>')
+                else:
+                    med, p25, p75 = float(r["median"] or 0), float(r["p25"] or 0), float(r["p75"] or 0)
+                    parts.append(f'<line x1="{X(px, p25):.1f}" y1="{ry}" x2="{X(px, p75):.1f}" y2="{ry}" stroke="#111827" stroke-width="3"/>')
+                    if rtype == "negotiated":
+                        parts.append(f'<circle cx="{X(px, med):.1f}" cy="{ry}" r="4" fill="#111827"><title>{html.escape(payer)} {code} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
+                    else:
+                        parts.append(f'<circle cx="{X(px, med):.1f}" cy="{ry}" r="4" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>{html.escape(payer)} {code} {html.escape(rtype)}: median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={int(r["n_rates"]):,}</title></circle>')
+                    stat = f"${med:,.0f} · ${p25:,.0f} to ${p75:,.0f} · n={int(r['n_rates']):,}"
+                    key = (round(med, 2), round(p25, 2), round(p75, 2), int(r["n_rates"]))
+                    for prev_key, prev_payer in seen:
+                        if prev_key == key:
+                            stat += f" · same as {prev_payer} above"
+                            break
+                    seen.append((key, payer))
+                    parts.append(f'<text x="{px + label_w + 12 + plot_w}" y="{ry + 3}" font-size="9.5">{html.escape(stat)}</text>')
+                parts.append("</g>")
+                ry += 16
+            ry += 4
     parts.append("</svg>")
     return "".join(parts)
-
 
 def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
     """Code page payer chart: one row per payer per rate type.
@@ -1246,7 +1253,7 @@ def _code_whiskers(bench: list[dict], xmax_code: float) -> str:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#111827"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
         else:
             parts.append(f'<circle cx="{X(med):.1f}" cy="{mid}" r="5" fill="#FFFFFF" stroke="#111827" stroke-width="1.3"><title>median ${med:,.2f}, middle half ${p25:,.2f} to ${p75:,.2f}, n={r["n_rates"]}</title></circle>')
-        pct = _pct_text(str(r["billing_code"]), med)
+        pct = _pct_text(str(r.get("billing_code") or ""), med)
         parts.append(f'<text x="{x0 + plot_w + 12}" y="{mid + 3}" font-size="10.5">median ${med:,.0f} · middle half ${p25:,.0f} to ${p75:,.0f} · n={int(r["n_rates"]):,}{(" · " + pct) if pct else ""}</text>')
         y += row_h
     for payer, types in by_payer.items():
@@ -1345,7 +1352,8 @@ _STRIP_CAPTION = (
     "One row per distinct pay pattern and rate type, on one dollar scale that starts at zero for every row. "
     "Rate types are never pooled: a negotiated median and a fee schedule median are different facts. "
     "Where a payer publishes the identical amounts for several codes, those codes share one row instead of repeating the same picture. "
-    "Each dot is one real dollar rate from a payer file. The teal band is the middle half of rates (p25 to p75). The thick tick is the median. "
+    "Each dot is one real dollar rate from a payer file. The grey band is the middle half of rates (p25 to p75). The thick tick is the median. "
+    "Source: payer Transparency in Coverage files as filed. "
     "Percentiles use linear interpolation between closest ranks. Observed dots are never interpolated. "
     "Filled dots are negotiated rates. Hollow dots are fee schedule rates. Percentage rates are not dollars and are left out. "
     "Hover any dot for payer, rate type, amount, and provider. Click or tap to pin its panel and open the source link. Tab works the same, Enter pins, Escape closes."
@@ -1739,7 +1747,7 @@ def code_page(code: str, payer: str | None = None) -> str:
     bench_all = [r for r in summary_by_code_payer() if str(r["billing_code"]) == code]
     agg_all = [r for r in summary_all_payers() if str(r["billing_code"]) == code]
     bench = [r for r in bench_all if not payer or str(r["payer"]) == payer]
-    rows = rates_for_code(code, payer=payer, limit=2000)
+    rows = rates_for_code(code, payer=payer, limit=100000)
     dollar = [r for r in rows if r.get("negotiated_rate") is not None]
     vals_all = [float(r["negotiated_rate"]) for r in dollar]
     xmax_global = max(25.0, (int(max(vals_all) / 25) + 1) * 25) if vals_all else 100.0
