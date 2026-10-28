@@ -265,6 +265,13 @@ h1.hero{font-size:clamp(2rem,4.2vw,2.9rem);line-height:1.08;letter-spacing:-0.02
 .chain{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin:1rem 0}
 .chain div{background:#fff;padding:.85rem 1rem;font-size:.92rem;line-height:1.45}
 .chain strong{display:block;font-size:.98rem}
+.banner{background:#FEF3C7;border:1px solid var(--gold);border-radius:10px;padding:.7rem 1rem;margin:1rem 0}
+.trace{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:1rem 0}
+.trace .col{border:1px solid var(--rule);border-radius:10px;padding:.8rem 1rem}
+.trace h3{margin:.1rem 0 .5rem;font-size:.95rem;color:var(--muted)}
+.tie{display:inline-block;background:var(--panel);border:1px solid var(--rule);border-radius:999px;padding:.1rem .55rem;font-size:.78rem;margin:.15rem .2rem 0 0}
+.gatecard{border:1px solid var(--rule);border-radius:10px;padding:.8rem 1rem;margin:.5rem 0}
+.score{font-size:1.3rem;font-weight:700}
 @media (max-width:700px){.chain{grid-template-columns:1fr}}
 @media (max-width:700px){.mrow{grid-template-columns:1fr;gap:.3rem}}
 @media (max-width:700px){.proof{grid-template-columns:1fr}.answerband{grid-template-columns:1fr}}
@@ -878,7 +885,7 @@ def home(request: Request) -> str:
     )
     return (
         f"<html><head><title>OpenPayer</title>{og_head()}<style>{STYLE}</style></head><body><a class='skip' href='#rates'>Skip to rates</a>{header}<div class='wrap'>"
-        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{chain}{_corpus_meter(inv, rows, len(codes))}{_flags_section()}"
+        f"<h1 class='hero'>{html.escape(headline)}</h1>{lede}{proof}{chain}{_corpus_meter(inv, rows, len(codes))}{_flags_section()}{_pilot_band()}"
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
@@ -1452,6 +1459,275 @@ def flag_page(payer: str, code: str, kind: str) -> str:
             "or the payer, code, and signal do not match a computed flag.</p></div></body></html>"
         )
     return _flag_dossier(match)
+
+
+_PILOT_CACHE: dict = {}
+
+
+def _pilot_data():
+    if not _PILOT_CACHE:
+        from . import pilot
+
+        sample = pilot.load_sample()
+        flags = pilot.compute_flags(sample)
+        _PILOT_CACHE.update(sample=sample, flags=flags, summary=pilot.state_summary(sample, flags))
+    return _PILOT_CACHE
+
+
+def _pilot_band() -> str:
+    s = _pilot_data()["summary"]
+    return (
+        "<h2>The pilot, run on one state's records</h2>"
+        "<p>The corpus above works before a claim exists. The pilot prototype answers the next question: "
+        "hand us one state's claims and records, and the same discipline runs forward. "
+        f"On a synthetic {html.escape(s['state'])} sample ({s['enrollees']} enrollees, {s['claims']} claims), "
+        f"deterministic checks raise {s['flags']} flags and ${s['flagged_dollars']:,.0f} in flagged claims, "
+        "each traced to its billing entity and ownership web. "
+        "<a href='/pilot'>Open the pilot prototype</a> · <a href='/pilot/onepager'>the state one-pager</a></p>"
+    )
+
+
+def _pilot_page(body: str, title: str) -> str:
+    return (
+        f"<html><head><title>{html.escape(title)} | OpenPayer</title>{og_head()}<style>{STYLE}</style></head>"
+        f"<body><div class='wrap'>{body}</div></body></html>"
+    )
+
+
+_PILOT_BANNER = "<div class='banner'><strong>Synthetic demonstration data.</strong> Every person, provider, entity, and dollar here is invented for the demo. No real patient, provider, or claim appears anywhere.</div>"
+
+
+@app.get("/pilot", response_class=HTMLResponse)
+def pilot_home() -> str:
+    from . import pilot
+
+    d = _pilot_data()
+    sample, flags, s = d["sample"], d["flags"], d["summary"]
+    kpis = "".join(
+        f"<div class='cell'><span class='lab'>{lab}</span><div class='med'>{val}</div></div>"
+        for val, lab in [
+            (f"{s['enrollees']}", "enrollees in sample"), (f"{s['claims']}", "claims checked"),
+            (f"${s['claims_dollars']:,.0f}", "claim dollars"), (f"{s['flags']}", "flags raised"),
+            (f"${s['flagged_dollars']:,.0f}", "flagged dollars"), (f"{s['gate_flagged']}", "below the gate (under 8 of 10)"),
+        ]
+    )
+    ruler = " · ".join(
+        f"{html.escape(c)} ${reference.medicare_rate(c):,.2f}"
+        for c in sample["codes"] if reference.medicare_rate(c)
+    )
+    rows = "".join(
+        "<tr><td>{sev}</td><td><a href='/pilot/flag/{fid}'>{label}</a></td>"
+        "<td><a href='/pilot/enrollee/{pid}'>{pid}</a></td><td>{prov}<br><small>NPI {npi}</small></td>"
+        "<td><a href='/pilot/entity/{eid}'>{eid}</a></td><td class='n'>${dollars:,.0f}</td></tr>".format(
+            sev=html.escape(f["severity"]), fid=f["id"], label=html.escape(f["label"]), pid=f["enrollee"],
+            prov=html.escape(f["provider_name"]), npi=f["npi"], eid=f["entity"], dollars=f["dollars"],
+        )
+        for f in flags
+    )
+    flagged_people = []
+    for e in sample["enrollees"]:
+        g = pilot.gate_score(e, sample["claims"])
+        if g["flagged"]:
+            nflags = sum(1 for f in flags if f["enrollee"] == e["id"])
+            flagged_people.append(
+                f"<div class='gatecard'><span class='score'>{g['score']} of 10</span> · "
+                f"<a href='/pilot/enrollee/{e['id']}'><b>{e['id']}</b></a> · identity {g['identity_evidence']} · "
+                f"condition {g['condition_evidence']} · continuity {g['continuity']} · housing: {html.escape(g['housing_context'])} "
+                f"(context only) · {nflags} flags</div>"
+            )
+    body = (
+        "<p><a href='/'>All codes and flags</a></p>"
+        "<h1>One state's records, checked before payment</h1>"
+        + _PILOT_BANNER
+        + "<p class='lede'>Claims show what was billed. The record shows what happened. "
+          "Deterministic checks only: no models, same input, same answer every time. "
+          "Click any flag to trace it to the billing entity and its ownership web.</p>"
+        f"<div class='answerband'>{kpis}</div>"
+        "<h2>The pricing ruler</h2>"
+        f"<p class='note'>Medicare national rates, CMS 2026 Physician Fee Schedule (RVU26A), the same ruler the corpus flags use: {ruler}.</p>"
+        "<h2>Flags for review</h2>"
+        "<div class='table-wrap'><table><thead><tr><th>Severity</th><th>Signal</th><th>Enrollee</th><th>Provider</th><th>Entity</th><th>Flagged $</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
+        "<h2>Validation gate</h2>"
+        "<p class='note'>Every enrollee scores out of 10 on evidence a person exists, evidence the condition supports "
+        "what is billed, and continuity of care. Below 8 routes to review before payment. Housing status is context "
+        "for outreach and is never scored: being displaced or sheltered is a circumstance, not a suspicion.</p>"
+        + "".join(flagged_people)
+        + "<p><a href='/pilot/onepager'>Open the printable state one-pager</a></p>"
+    )
+    return _pilot_page(body, "Pilot prototype: one state's records")
+
+
+@app.get("/pilot/flag/{fid}", response_class=HTMLResponse)
+def pilot_flag(fid: str) -> str:
+    from . import pilot
+
+    d = _pilot_data()
+    sample, flags = d["sample"], d["flags"]
+    f = next((x for x in flags if x["id"] == fid), None)
+    if f is None:
+        return _pilot_page("<p><a href='/pilot'>Pilot home</a></p><h1>No such flag</h1>", "Flag not found")
+    trace = pilot.entity_trace(sample, flags, f["entity"])
+    enr = next(e for e in sample["enrollees"] if e["id"] == f["enrollee"])
+    g = pilot.gate_score(enr, sample["claims"])
+    sibs = "".join(
+        f"<div class='col'><h3>Sibling entity</h3><b>{html.escape(s['name'])}</b><br>{html.escape(s['kind'])} · {html.escape(s['city'])}<br>"
+        + "".join(f"<span class='tie'>{html.escape(t)}</span>" for t in s["ties"]) + "</div>"
+        for s in trace["siblings"]
+    )
+    provs = "<br>".join(f"{html.escape(p['name'])} ({html.escape(p['specialty'])})" for p in trace["providers"])
+    multi = ""
+    if trace["multi_entity_providers"]:
+        p0 = trace["multi_entity_providers"][0]
+        multi = f"<br><span class='tie'>{html.escape(p0['name'])} bills under {len(p0['entities'])} entities</span>"
+    body = (
+        "<p><a href='/pilot'>Pilot home</a></p>"
+        f"<h1>{html.escape(f['id'])}: {html.escape(f['label'])}</h1>"
+        + _PILOT_BANNER
+        + f"<p class='lede-sm'>{html.escape(f['severity'])} · enrollee <a href='/pilot/enrollee/{f['enrollee']}'>{f['enrollee']}</a> · ${f['dollars']:,.0f} flagged</p>"
+        + "<ul>" + "".join(f"<li>{html.escape(e)}</li>" for e in f["evidence"]) + "</ul>"
+        f"<p><b>Enrollee gate:</b> <span class='score'>{g['score']} of 10</span> (identity {g['identity_evidence']}, "
+        f"condition {g['condition_evidence']}, continuity {g['continuity']}). Housing context: {html.escape(g['housing_context'])}, never scored.</p>"
+        "<div class='trace'>"
+        f"<div class='col'><h3>Provider</h3><b>{html.escape(f['provider_name'])}</b><br>{html.escape(f['specialty'])}<br>NPI {f['npi']}{multi}</div>"
+        f"<div class='col'><h3>Billing entity</h3><b>{html.escape(trace['entity']['name'])}</b><br>{html.escape(trace['entity']['kind'])} · "
+        f"{html.escape(trace['entity']['city'])}<br>TIN {html.escape(trace['entity']['tin'])}<br>{provs}</div>"
+        f"<div class='col'><h3>Parent</h3><b>{html.escape(trace['parent'] or 'none recorded')}</b><br>Owner: {html.escape(trace['entity']['owner'])}<br>"
+        f"Registered agent: {html.escape(trace['entity']['agent'])}<br>{html.escape(trace['entity']['address'])}</div>"
+        + sibs + "</div>"
+        f"<p><b>Across this ownership web: {len(trace['flags_in_web'])} flags, ${trace['web_flagged_dollars']:,.0f} flagged.</b> "
+        "Flags are review signals, not findings. A clinician and CMS make every call.</p>"
+    )
+    return _pilot_page(body, f"Flag {f['id']}: {f['label']}")
+
+
+@app.get("/pilot/entity/{eid}", response_class=HTMLResponse)
+def pilot_entity(eid: str) -> str:
+    from . import pilot
+
+    d = _pilot_data()
+    sample, flags = d["sample"], d["flags"]
+    entities = {e["id"]: e for e in sample["entities"]}
+    if eid not in entities:
+        return _pilot_page("<p><a href='/pilot'>Pilot home</a></p><h1>No such entity</h1>", "Entity not found")
+    trace = pilot.entity_trace(sample, flags, eid)
+    ent = trace["entity"]
+    claims_here = [c for c in sample["claims"] if c["entity"] == eid]
+    sib_rows = "".join(
+        f"<tr><td><a href='/pilot/entity/{s['id']}'>{html.escape(s['name'])}</a></td><td>{html.escape(s['kind'])}</td>"
+        f"<td>{html.escape(', '.join(s['ties']))}</td></tr>" for s in trace["siblings"]
+    )
+    flag_rows = "".join(
+        f"<tr><td>{html.escape(f['severity'])}</td><td><a href='/pilot/flag/{f['id']}'>{html.escape(f['label'])}</a></td>"
+        f"<td>{f['enrollee']}</td><td class='n'>${f['dollars']:,.0f}</td></tr>" for f in trace["flags_in_web"]
+    )
+    body = (
+        "<p><a href='/pilot'>Pilot home</a></p>"
+        f"<h1>{html.escape(ent['name'])}</h1>"
+        + _PILOT_BANNER
+        + f"<p class='lede-sm'>{html.escape(ent['kind'])} · {html.escape(ent['city'])} · TIN {html.escape(ent['tin'])}<br>"
+        f"Parent: {html.escape(trace['parent'] or 'none recorded')} · Owner: {html.escape(ent['owner'])} · "
+        f"Registered agent: {html.escape(ent['agent'])}<br>{html.escape(ent['address'])}</p>"
+        f"<p>{len(claims_here)} claims in the sample, ${sum(c['paid'] for c in claims_here):,.0f}. "
+        f"Flags on this entity: {len(trace['flags_here'])}. Flags across its ownership web: {len(trace['flags_in_web'])} "
+        f"(${trace['web_flagged_dollars']:,.0f}).</p>"
+        "<h2>Ownership web</h2>"
+        f"<div class='table-wrap'><table><tr><th>Sibling entity</th><th>Kind</th><th>Ties</th></tr>{sib_rows}</table></div>"
+        "<h2>Flags touching this web</h2>"
+        f"<div class='table-wrap'><table><tr><th>Severity</th><th>Signal</th><th>Enrollee</th><th>Flagged $</th></tr>{flag_rows}</table></div>"
+    )
+    return _pilot_page(body, ent["name"])
+
+
+@app.get("/pilot/enrollee/{pid}", response_class=HTMLResponse)
+def pilot_enrollee(pid: str) -> str:
+    from . import pilot
+
+    d = _pilot_data()
+    sample, flags = d["sample"], d["flags"]
+    enr = next((e for e in sample["enrollees"] if e["id"] == pid), None)
+    if enr is None:
+        return _pilot_page("<p><a href='/pilot'>Pilot home</a></p><h1>No such enrollee</h1>", "Enrollee not found")
+    g = pilot.gate_score(enr, sample["claims"])
+    mine = [c for c in sample["claims"] if c["enrollee"] == pid]
+    claim_rows = "".join(
+        f"<tr><td>{c['date']}</td><td>{c['code']}</td><td>{html.escape(c['npi'])}</td>"
+        f"<td><a href='/pilot/entity/{c['entity']}'>{c['entity']}</a></td><td>{html.escape(c['payer'])}</td>"
+        f"<td class='n'>${c['paid']:,.0f}</td></tr>" for c in mine
+    )
+    flag_rows = "".join(
+        f"<tr><td>{html.escape(f['severity'])}</td><td><a href='/pilot/flag/{f['id']}'>{html.escape(f['label'])}</a></td>"
+        f"<td class='n'>${f['dollars']:,.0f}</td></tr>" for f in flags if f["enrollee"] == pid
+    )
+    body = (
+        "<p><a href='/pilot'>Pilot home</a></p>"
+        f"<h1>{html.escape(pid)}</h1>"
+        + _PILOT_BANNER
+        + f"<p class='lede-sm'>Age {enr['age']} · {html.escape(enr['county'])} County · {html.escape(enr['program'])} · "
+        f"diagnoses: {html.escape(', '.join(enr['diagnoses']) or 'none in record')} · visits {enr['visits']} · "
+        f"immunizations {enr['immunizations']}" + (f" · died {enr['death_date']}" if enr.get("death_date") else "") + "</p>"
+        f"<div class='gatecard'><span class='score'>{g['score']} of 10</span> · identity evidence {g['identity_evidence']} of 4 · "
+        f"condition evidence {g['condition_evidence']} of 3 · continuity {g['continuity']} of 3 · "
+        f"housing: {html.escape(g['housing_context'])} (context for outreach, never scored)"
+        + (" · <b>below the gate: routes to review before payment</b>" if g["flagged"] else "") + "</div>"
+        "<h2>Claims</h2>"
+        f"<div class='table-wrap'><table><tr><th>Date</th><th>Code</th><th>Provider NPI</th><th>Entity</th><th>Payer</th><th>Paid</th></tr>{claim_rows}</table></div>"
+        "<h2>Flags</h2>"
+        f"<div class='table-wrap'><table><tr><th>Severity</th><th>Signal</th><th>Flagged $</th></tr>{flag_rows}</table></div>"
+    )
+    return _pilot_page(body, f"Enrollee {pid}")
+
+
+@app.get("/pilot/onepager", response_class=HTMLResponse)
+def pilot_onepager() -> str:
+    d = _pilot_data()
+    sample, flags, s = d["sample"], d["flags"], d["summary"]
+    by_type: dict[str, list] = {}
+    for f in flags:
+        by_type.setdefault(f["type"], []).append(f)
+    from . import pilot as _pilot
+
+    rows = "".join(
+        f"<tr><td>{html.escape(_pilot.FLAG_TYPES[k])}</td><td class='n'>{len(v)}</td>"
+        f"<td class='n'>${sum(f['dollars'] for f in v):,.0f}</td></tr>"
+        for k, v in sorted(by_type.items())
+    )
+    top_entities: dict[str, float] = {}
+    for f in flags:
+        top_entities[f["entity"]] = top_entities.get(f["entity"], 0) + f["dollars"]
+    entities = {e["id"]: e for e in sample["entities"]}
+    tops = "".join(
+        f"<li>{html.escape(entities[e]['name'])}: ${v:,.0f} across flagged claims</li>"
+        for e, v in sorted(top_entities.items(), key=lambda kv: -kv[1])[:5]
+    )
+    body = f"""<p><a href='/pilot'>Pilot home</a></p>
+<h1>Minnesota (sample): what the record shows before payment</h1>
+{_PILOT_BANNER}
+<p>We loaded one state's sample of claims and patient records ({s['enrollees']} enrollees,
+{s['claims']} claims, ${s['claims_dollars']:,.0f}) and ran deterministic checks only:
+no models, no AI, same input and same answer every time. The checks compare each claim against
+the patient's own record, against scope of practice, and against the Medicare fee schedule and
+payer-filed rates (OpenPayer corpus, CMS 2026 RVU file).</p>
+<h2>What surfaced</h2>
+<p><strong>{s['flags']} flags, ${s['flagged_dollars']:,.0f} in flagged claims.</strong>
+{s['gate_flagged']} enrollees score below the validation gate (8 of 10) and would route to
+review before payment.</p>
+<table><tr><th>Signal</th><th>Flags</th><th>Flagged dollars</th></tr>{rows}</table>
+<h2>Where it concentrates</h2><ul>{tops}</ul>
+<p>Each flag opens to the billing entity and its ownership web: parent LLC, sibling entities,
+shared addresses, owners, and registered agents. In this sample the ghost-enrollee billing
+($1,560, no record history at all) traces to a DME supplier sharing a parent, address, owner,
+and agent with a home health agency and a hospice.</p>
+<h2>What this is and is not</h2>
+<p>Flags are review signals, not findings. A clinician and CMS make every call. The method is
+zero-copy: scoring runs where the records already live and moves nothing.</p>
+<h2>The ask</h2>
+<p><strong>An ATO and a sandbox in a jurisdiction of CMS's choosing, for a defined pilot term:</strong>
+one high-risk category, one region, ninety days. We check every held claim against the record,
+report what the check caught that review missed and what it cleared that review would have
+delayed, and CMS decides what scales.</p>
+<p class='note'>MedTruth · Prepared for CMS Program Integrity · Demo generated {html.escape(sample['generated'])} from synthetic data</p>"""
+    return _pilot_page(body, "Minnesota sample: what we found")
 
 
 @app.get("/code/{code}", response_class=HTMLResponse)

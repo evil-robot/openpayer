@@ -1,0 +1,4526 @@
+{
+ "state": "Minnesota",
+ "note": "SYNTHETIC DEMO DATA. Every person, provider, entity, NPI, and dollar is invented. No real patient, provider, or claim appears anywhere.",
+ "generated": "2026-10-28",
+ "codes": {
+  "99213": "office visit, established patient",
+  "99446": "interprofessional consult, short",
+  "99447": "interprofessional consult",
+  "99448": "interprofessional consult, longer",
+  "99449": "interprofessional consult, longest",
+  "99451": "electronic consult, brief",
+  "99452": "electronic consult, requesting side",
+  "G2212": "prolonged office visit add-on",
+  "11042": "wound debridement, first lesion",
+  "97597": "wound care, selective debridement"
+ },
+ "scope": {
+  "podiatry": [
+   "11042",
+   "97597",
+   "99213"
+  ],
+  "family medicine": [
+   "99213",
+   "99446",
+   "99447",
+   "99451",
+   "99452",
+   "G2212"
+  ],
+  "cardiology": [
+   "99213",
+   "99446",
+   "99447",
+   "99448",
+   "99449",
+   "G2212"
+  ],
+  "wound care": [
+   "11042",
+   "97597",
+   "99213",
+   "99451"
+  ],
+  "telehealth": [
+   "99213",
+   "99451",
+   "99452"
+  ],
+  "hospice": [
+   "99213",
+   "99447"
+  ],
+  "nurse practitioner": [
+   "99213",
+   "99446",
+   "99451",
+   "G2212"
+  ]
+ },
+ "entities": [
+  {
+   "id": "E01",
+   "name": "Lakeside Family Medicine LLC",
+   "kind": "clinic",
+   "tin": "41-2001001",
+   "city": "Duluth",
+   "parent": null,
+   "owner": "M. Okafor",
+   "agent": "North Registered Agents",
+   "address": "1200 London Rd, Duluth, MN"
+  },
+  {
+   "id": "E02",
+   "name": "Twin Cities Cardiology Associates LLC",
+   "kind": "clinic",
+   "tin": "41-2001002",
+   "city": "Minneapolis",
+   "parent": null,
+   "owner": "S. Feld",
+   "agent": "North Registered Agents",
+   "address": "800 Nicollet Mall, Minneapolis, MN"
+  },
+  {
+   "id": "E03",
+   "name": "Prairie Podiatry Group PLLC",
+   "kind": "clinic",
+   "tin": "41-2001003",
+   "city": "Rochester",
+   "parent": null,
+   "owner": "J. Lindqvist",
+   "agent": "Prairie Filing Co",
+   "address": "55 2nd St SW, Rochester, MN"
+  },
+  {
+   "id": "E04",
+   "name": "NorthStar Home Health LLC",
+   "kind": "home health",
+   "tin": "41-2001004",
+   "city": "St. Paul",
+   "parent": "NorthStar Care Holdings LLC",
+   "owner": "D. Keller",
+   "agent": "Capitol Agents Inc",
+   "address": "400 Robert St, St. Paul, MN"
+  },
+  {
+   "id": "E05",
+   "name": "NorthStar Hospice LLC",
+   "kind": "hospice",
+   "tin": "41-2001005",
+   "city": "St. Paul",
+   "parent": "NorthStar Care Holdings LLC",
+   "owner": "D. Keller",
+   "agent": "Capitol Agents Inc",
+   "address": "400 Robert St, St. Paul, MN"
+  },
+  {
+   "id": "E06",
+   "name": "MedEquip Direct LLC",
+   "kind": "DME supplier",
+   "tin": "41-2001006",
+   "city": "St. Paul",
+   "parent": "NorthStar Care Holdings LLC",
+   "owner": "D. Keller",
+   "agent": "Capitol Agents Inc",
+   "address": "400 Robert St, St. Paul, MN"
+  },
+  {
+   "id": "E07",
+   "name": "ClearLab Diagnostics LLC",
+   "kind": "laboratory",
+   "tin": "41-2001007",
+   "city": "Minneapolis",
+   "parent": null,
+   "owner": "R. Anand",
+   "agent": "North Registered Agents",
+   "address": "2100 Hennepin Ave, Minneapolis, MN"
+  },
+  {
+   "id": "E08",
+   "name": "TeleVisit Now LLC",
+   "kind": "telehealth",
+   "tin": "41-2001008",
+   "city": "Austin (virtual)",
+   "parent": null,
+   "owner": "K. Bright",
+   "agent": "Lone Star Agents",
+   "address": "virtual only, no MN office"
+  },
+  {
+   "id": "E09",
+   "name": "SkinRenew Wound Care LLC",
+   "kind": "wound care",
+   "tin": "41-2001009",
+   "city": "Mankato",
+   "parent": null,
+   "owner": "P. Voss",
+   "agent": "Prairie Filing Co",
+   "address": "1400 Madison Ave, Mankato, MN"
+  },
+  {
+   "id": "E10",
+   "name": "BrightPath Autism Center LLC",
+   "kind": "behavioral",
+   "tin": "41-2001010",
+   "city": "Brooklyn Park",
+   "parent": null,
+   "owner": "T. Nguyen",
+   "agent": "North Registered Agents",
+   "address": "8500 Zane Ave, Brooklyn Park, MN"
+  }
+ ],
+ "providers": [
+  {
+   "npi": "1000000101",
+   "name": "A. Reyes, MD",
+   "specialty": "family medicine",
+   "entities": [
+    "E01"
+   ]
+  },
+  {
+   "npi": "1000000102",
+   "name": "B. Haugen, MD",
+   "specialty": "family medicine",
+   "entities": [
+    "E01"
+   ]
+  },
+  {
+   "npi": "1000000103",
+   "name": "C. Meyer, MD",
+   "specialty": "cardiology",
+   "entities": [
+    "E02"
+   ]
+  },
+  {
+   "npi": "1000000104",
+   "name": "D. Osei, MD",
+   "specialty": "cardiology",
+   "entities": [
+    "E02"
+   ]
+  },
+  {
+   "npi": "1000000105",
+   "name": "E. Lindqvist, DPM",
+   "specialty": "podiatry",
+   "entities": [
+    "E03"
+   ]
+  },
+  {
+   "npi": "1000000106",
+   "name": "F. Barlow, DPM",
+   "specialty": "podiatry",
+   "entities": [
+    "E03"
+   ]
+  },
+  {
+   "npi": "1000000107",
+   "name": "G. Tran, MD",
+   "specialty": "hospice",
+   "entities": [
+    "E04",
+    "E05"
+   ]
+  },
+  {
+   "npi": "1000000108",
+   "name": "H. Weiss, NP",
+   "specialty": "nurse practitioner",
+   "entities": [
+    "E04",
+    "E06"
+   ]
+  },
+  {
+   "npi": "1000000109",
+   "name": "I. Novak, MD",
+   "specialty": "wound care",
+   "entities": [
+    "E09"
+   ]
+  },
+  {
+   "npi": "1000000110",
+   "name": "J. Park, MD",
+   "specialty": "telehealth",
+   "entities": [
+    "E08"
+   ]
+  },
+  {
+   "npi": "1000000111",
+   "name": "K. Abdi, MD",
+   "specialty": "family medicine",
+   "entities": [
+    "E01",
+    "E08"
+   ]
+  },
+  {
+   "npi": "1000000112",
+   "name": "L. Fontaine, NP",
+   "specialty": "nurse practitioner",
+   "entities": [
+    "E10"
+   ]
+  }
+ ],
+ "enrollees": [
+  {
+   "id": "PT-0001",
+   "age": 82,
+   "sex": "M",
+   "county": "St. Louis",
+   "program": "Medicare",
+   "diagnoses": [
+    "hypertension",
+    "chronic wound"
+   ],
+   "immunizations": 7,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0002",
+   "age": 71,
+   "sex": "M",
+   "county": "Ramsey",
+   "program": "Medicare",
+   "diagnoses": [
+    "COPD"
+   ],
+   "immunizations": 4,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0003",
+   "age": 52,
+   "sex": "F",
+   "county": "Ramsey",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure"
+   ],
+   "immunizations": 7,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0004",
+   "age": 41,
+   "sex": "M",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 8,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0005",
+   "age": 63,
+   "sex": "F",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure",
+    "hypertension"
+   ],
+   "immunizations": 3,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0006",
+   "age": 52,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 2,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0007",
+   "age": 47,
+   "sex": "F",
+   "county": "Olmsted",
+   "program": "Medicaid",
+   "diagnoses": [
+    "type 2 diabetes"
+   ],
+   "immunizations": 9,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0008",
+   "age": 41,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum"
+   ],
+   "immunizations": 7,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0009",
+   "age": 76,
+   "sex": "F",
+   "county": "Dakota",
+   "program": "Medicare",
+   "diagnoses": [
+    "autism spectrum"
+   ],
+   "immunizations": 3,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0010",
+   "age": 47,
+   "sex": "M",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "osteoarthritis"
+   ],
+   "immunizations": 7,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0011",
+   "age": 67,
+   "sex": "F",
+   "county": "Stearns",
+   "program": "Medicare",
+   "diagnoses": [
+    "chronic wound",
+    "autism spectrum"
+   ],
+   "immunizations": 8,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0012",
+   "age": 67,
+   "sex": "F",
+   "county": "Anoka",
+   "program": "Medicare",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 4,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0013",
+   "age": 58,
+   "sex": "F",
+   "county": "St. Louis",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum",
+    "depression"
+   ],
+   "immunizations": 5,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0014",
+   "age": 41,
+   "sex": "F",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression",
+    "autism spectrum"
+   ],
+   "immunizations": 8,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": [
+    {
+     "code": "97597",
+     "date": "2026-04-08",
+     "amount": 180,
+     "note": "paid cash at SkinRenew Wound Care"
+    }
+   ]
+  },
+  {
+   "id": "PT-0015",
+   "age": 71,
+   "sex": "F",
+   "county": "Ramsey",
+   "program": "Medicare",
+   "diagnoses": [
+    "type 2 diabetes",
+    "COPD"
+   ],
+   "immunizations": 6,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0016",
+   "age": 47,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure",
+    "COPD"
+   ],
+   "immunizations": 7,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0017",
+   "age": 82,
+   "sex": "M",
+   "county": "Anoka",
+   "program": "Medicare",
+   "diagnoses": [
+    "heart failure",
+    "hypertension"
+   ],
+   "immunizations": 7,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0018",
+   "age": 82,
+   "sex": "M",
+   "county": "St. Louis",
+   "program": "Medicare",
+   "diagnoses": [
+    "heart failure",
+    "osteoarthritis"
+   ],
+   "immunizations": 4,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0019",
+   "age": 82,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicare",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 5,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0020",
+   "age": 67,
+   "sex": "F",
+   "county": "St. Louis",
+   "program": "Medicare",
+   "diagnoses": [
+    "autism spectrum",
+    "depression"
+   ],
+   "immunizations": 6,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0021",
+   "age": 34,
+   "sex": "M",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "type 2 diabetes"
+   ],
+   "immunizations": 3,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": "2026-03-01",
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0022",
+   "age": 41,
+   "sex": "F",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure"
+   ],
+   "immunizations": 3,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0023",
+   "age": 63,
+   "sex": "F",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD",
+    "heart failure"
+   ],
+   "immunizations": 9,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0024",
+   "age": 58,
+   "sex": "F",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression",
+    "type 2 diabetes"
+   ],
+   "immunizations": 6,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0025",
+   "age": 47,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD"
+   ],
+   "immunizations": 4,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0026",
+   "age": 47,
+   "sex": "M",
+   "county": "Olmsted",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression",
+    "type 2 diabetes"
+   ],
+   "immunizations": 4,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0027",
+   "age": 41,
+   "sex": "F",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum",
+    "chronic wound"
+   ],
+   "immunizations": 6,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0028",
+   "age": 71,
+   "sex": "M",
+   "county": "Dakota",
+   "program": "Medicare",
+   "diagnoses": [
+    "osteoarthritis",
+    "chronic wound"
+   ],
+   "immunizations": 2,
+   "visits": 6,
+   "housing": "displaced",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0029",
+   "age": 34,
+   "sex": "M",
+   "county": "Ramsey",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 6,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0030",
+   "age": 47,
+   "sex": "M",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "hypertension"
+   ],
+   "immunizations": 3,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0031",
+   "age": 63,
+   "sex": "M",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure"
+   ],
+   "immunizations": 4,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [
+    {
+     "drug": "semaglutide (GLP-1)",
+     "source": "insurance",
+     "prescriber": "1000000110",
+     "from": "2026-02-01",
+     "to": "2026-08-01"
+    },
+    {
+     "drug": "tirzepatide (GLP-1)",
+     "source": "cash, off-record",
+     "prescriber": "1000000109",
+     "from": "2026-03-01",
+     "to": "2026-07-01"
+    }
+   ],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0032",
+   "age": 82,
+   "sex": "F",
+   "county": "Hennepin",
+   "program": "Medicare",
+   "diagnoses": [
+    "osteoarthritis"
+   ],
+   "immunizations": 8,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0033",
+   "age": 34,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "osteoarthritis"
+   ],
+   "immunizations": 6,
+   "visits": 2,
+   "housing": "sheltered",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0034",
+   "age": 47,
+   "sex": "M",
+   "county": "Ramsey",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum",
+    "heart failure"
+   ],
+   "immunizations": 2,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0035",
+   "age": 41,
+   "sex": "M",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound",
+    "COPD"
+   ],
+   "immunizations": 8,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0036",
+   "age": 67,
+   "sex": "F",
+   "county": "Ramsey",
+   "program": "Medicare",
+   "diagnoses": [
+    "heart failure"
+   ],
+   "immunizations": 4,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0037",
+   "age": 82,
+   "sex": "M",
+   "county": "St. Louis",
+   "program": "Medicare",
+   "diagnoses": [
+    "heart failure"
+   ],
+   "immunizations": 6,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0038",
+   "age": 34,
+   "sex": "F",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum",
+    "depression"
+   ],
+   "immunizations": 2,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0039",
+   "age": 41,
+   "sex": "M",
+   "county": "Anoka",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression",
+    "hypertension"
+   ],
+   "immunizations": 7,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0040",
+   "age": 41,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "heart failure",
+    "hypertension"
+   ],
+   "immunizations": 7,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0041",
+   "age": 47,
+   "sex": "F",
+   "county": "Olmsted",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression"
+   ],
+   "immunizations": 8,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0042",
+   "age": 58,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD"
+   ],
+   "immunizations": 8,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0043",
+   "age": 67,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicare",
+   "diagnoses": [
+    "osteoarthritis",
+    "autism spectrum"
+   ],
+   "immunizations": 9,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0044",
+   "age": 34,
+   "sex": "F",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 4,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0045",
+   "age": 47,
+   "sex": "F",
+   "county": "St. Louis",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD"
+   ],
+   "immunizations": 2,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0046",
+   "age": 47,
+   "sex": "F",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound",
+    "type 2 diabetes"
+   ],
+   "immunizations": 8,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0047",
+   "age": 76,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicare",
+   "diagnoses": [
+    "autism spectrum"
+   ],
+   "immunizations": 3,
+   "visits": 2,
+   "housing": "sheltered",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0048",
+   "age": 67,
+   "sex": "M",
+   "county": "St. Louis",
+   "program": "Medicare",
+   "diagnoses": [
+    "chronic wound",
+    "heart failure"
+   ],
+   "immunizations": 3,
+   "visits": 6,
+   "housing": "sheltered",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0049",
+   "age": 71,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicare",
+   "diagnoses": [
+    "hypertension",
+    "chronic wound"
+   ],
+   "immunizations": 4,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0050",
+   "age": 63,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD",
+    "osteoarthritis"
+   ],
+   "immunizations": 7,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0051",
+   "age": 47,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "COPD",
+    "chronic wound"
+   ],
+   "immunizations": 7,
+   "visits": 5,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0052",
+   "age": 82,
+   "sex": "F",
+   "county": "Olmsted",
+   "program": "Medicare",
+   "diagnoses": [
+    "heart failure",
+    "depression"
+   ],
+   "immunizations": 7,
+   "visits": 3,
+   "housing": "sheltered",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0053",
+   "age": 41,
+   "sex": "F",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "chronic wound"
+   ],
+   "immunizations": 4,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0054",
+   "age": 82,
+   "sex": "F",
+   "county": "Olmsted",
+   "program": "Medicare",
+   "diagnoses": [
+    "COPD",
+    "heart failure"
+   ],
+   "immunizations": 2,
+   "visits": 6,
+   "housing": "sheltered",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0055",
+   "age": 52,
+   "sex": "M",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum",
+    "depression"
+   ],
+   "immunizations": 9,
+   "visits": 7,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0056",
+   "age": 52,
+   "sex": "F",
+   "county": "Olmsted",
+   "program": "Medicaid",
+   "diagnoses": [
+    "osteoarthritis",
+    "COPD"
+   ],
+   "immunizations": 4,
+   "visits": 6,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0057",
+   "age": 41,
+   "sex": "F",
+   "county": "Hennepin",
+   "program": "Medicaid",
+   "diagnoses": [
+    "autism spectrum"
+   ],
+   "immunizations": 8,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0058",
+   "age": 58,
+   "sex": "M",
+   "county": "Stearns",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression"
+   ],
+   "immunizations": 7,
+   "visits": 4,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0059",
+   "age": 67,
+   "sex": "F",
+   "county": "Ramsey",
+   "program": "Medicare",
+   "diagnoses": [
+    "osteoarthritis"
+   ],
+   "immunizations": 7,
+   "visits": 2,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0060",
+   "age": 41,
+   "sex": "F",
+   "county": "Dakota",
+   "program": "Medicaid",
+   "diagnoses": [
+    "depression"
+   ],
+   "immunizations": 9,
+   "visits": 3,
+   "housing": "stable",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  },
+  {
+   "id": "PT-0077",
+   "age": 58,
+   "sex": "M",
+   "county": "Ramsey",
+   "program": "Medicaid",
+   "diagnoses": [],
+   "immunizations": 0,
+   "visits": 0,
+   "housing": "unknown",
+   "death_date": null,
+   "prescriptions": [],
+   "cash_services": []
+  }
+ ],
+ "encounters": [
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-01-16",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-09-05",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-05-01",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-08-08",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-04-19",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-01-19",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0001",
+   "date": "2026-01-07",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0002",
+   "date": "2026-02-07",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0002",
+   "date": "2026-08-02",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0003",
+   "date": "2026-07-21",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0003",
+   "date": "2026-07-10",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0003",
+   "date": "2026-06-26",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-01-21",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-01-26",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-05-06",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-09-12",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-03-10",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-01-28",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0004",
+   "date": "2026-02-09",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0005",
+   "date": "2026-07-24",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0005",
+   "date": "2026-08-04",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0005",
+   "date": "2026-05-19",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0005",
+   "date": "2026-01-26",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0006",
+   "date": "2026-08-19",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0006",
+   "date": "2026-05-05",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0006",
+   "date": "2026-09-13",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0006",
+   "date": "2026-04-07",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0006",
+   "date": "2026-02-08",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0007",
+   "date": "2026-04-01",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0007",
+   "date": "2026-09-18",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0007",
+   "date": "2026-01-04",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0007",
+   "date": "2026-02-09",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-09-15",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-08-07",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-01-21",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-03-01",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-06-16",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-08-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0008",
+   "date": "2026-08-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0009",
+   "date": "2026-08-01",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0009",
+   "date": "2026-07-15",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0009",
+   "date": "2026-09-11",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0009",
+   "date": "2026-05-16",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0009",
+   "date": "2026-02-16",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0010",
+   "date": "2026-05-13",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0010",
+   "date": "2026-02-04",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0010",
+   "date": "2026-01-12",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0010",
+   "date": "2026-09-26",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0010",
+   "date": "2026-03-07",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-09-17",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-01-28",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-09-19",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-03-12",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-06-15",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0011",
+   "date": "2026-06-11",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0012",
+   "date": "2026-04-05",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0012",
+   "date": "2026-08-24",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0012",
+   "date": "2026-09-28",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0012",
+   "date": "2026-01-12",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0013",
+   "date": "2026-01-12",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0013",
+   "date": "2026-02-23",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0013",
+   "date": "2026-09-14",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-04-12",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-01-09",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-05-04",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-07-27",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-05-01",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0014",
+   "date": "2026-05-24",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-03-03",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-01-14",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-07-10",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-03-25",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-08-17",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0015",
+   "date": "2026-03-17",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0016",
+   "date": "2026-03-03",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0016",
+   "date": "2026-05-28",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0016",
+   "date": "2026-03-27",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0016",
+   "date": "2026-08-15",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0017",
+   "date": "2026-03-06",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0017",
+   "date": "2026-04-27",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0018",
+   "date": "2026-04-16",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0018",
+   "date": "2026-06-18",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0018",
+   "date": "2026-02-03",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0018",
+   "date": "2026-08-22",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0018",
+   "date": "2026-06-16",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0019",
+   "date": "2026-07-01",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0019",
+   "date": "2026-03-17",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0020",
+   "date": "2026-04-18",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0020",
+   "date": "2026-07-25",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0020",
+   "date": "2026-06-19",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0020",
+   "date": "2026-01-25",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0021",
+   "date": "2026-01-06",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0021",
+   "date": "2026-02-09",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0022",
+   "date": "2026-06-08",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0022",
+   "date": "2026-06-20",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0023",
+   "date": "2026-07-18",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0023",
+   "date": "2026-07-25",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0023",
+   "date": "2026-03-17",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0024",
+   "date": "2026-01-07",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0024",
+   "date": "2026-08-02",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0024",
+   "date": "2026-09-17",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0024",
+   "date": "2026-09-11",
+   "npi": "1000000105",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0025",
+   "date": "2026-08-01",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0025",
+   "date": "2026-01-21",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0026",
+   "date": "2026-09-28",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0026",
+   "date": "2026-01-12",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-02-25",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-03-21",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-08-20",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-06-01",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-08-03",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0027",
+   "date": "2026-06-24",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-07-17",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-01-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-06-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-08-11",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-02-07",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0028",
+   "date": "2026-07-13",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-03-07",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-04-27",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-06-22",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-04-25",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-03-04",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-07-13",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0029",
+   "date": "2026-07-26",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0030",
+   "date": "2026-01-06",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0030",
+   "date": "2026-07-21",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0031",
+   "date": "2026-05-27",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0031",
+   "date": "2026-08-03",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-08-27",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-07-16",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-04-23",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-07-15",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-02-03",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-05-21",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0032",
+   "date": "2026-06-04",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0033",
+   "date": "2026-01-18",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0033",
+   "date": "2026-02-22",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-07-16",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-08-03",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-05-08",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-02-08",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-01-15",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-04-14",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0034",
+   "date": "2026-03-01",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0035",
+   "date": "2026-09-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0035",
+   "date": "2026-06-26",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0035",
+   "date": "2026-04-19",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0035",
+   "date": "2026-04-21",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0035",
+   "date": "2026-08-11",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-02-06",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-06-17",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-07-26",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-04-12",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-06-14",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0036",
+   "date": "2026-04-05",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0037",
+   "date": "2026-03-07",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0037",
+   "date": "2026-09-17",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0037",
+   "date": "2026-08-06",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0037",
+   "date": "2026-08-20",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0037",
+   "date": "2026-03-27",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0038",
+   "date": "2026-06-16",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0038",
+   "date": "2026-04-10",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-05-21",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-07-22",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-08-24",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-09-20",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-01-23",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-02-09",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0039",
+   "date": "2026-06-22",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0040",
+   "date": "2026-07-22",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0040",
+   "date": "2026-03-05",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0040",
+   "date": "2026-07-12",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-04-19",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-08-06",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-04-20",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-02-09",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-03-09",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-09-15",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0041",
+   "date": "2026-08-07",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-07-12",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-02-26",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-06-13",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-06-04",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-04-21",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-01-10",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0042",
+   "date": "2026-01-13",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0043",
+   "date": "2026-02-22",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0043",
+   "date": "2026-01-27",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0043",
+   "date": "2026-04-10",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0043",
+   "date": "2026-09-15",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0044",
+   "date": "2026-04-19",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0044",
+   "date": "2026-08-01",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-05-15",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-01-13",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-07-20",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-01-14",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-04-09",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0045",
+   "date": "2026-05-17",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-02-17",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-08-25",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-01-02",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-07-06",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-07-16",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0046",
+   "date": "2026-01-26",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0047",
+   "date": "2026-06-04",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0047",
+   "date": "2026-05-19",
+   "npi": "1000000104",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-04-07",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-04-04",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-01-04",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-01-05",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-01-03",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0048",
+   "date": "2026-04-02",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-08-04",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-03-16",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-06-09",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-06-13",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-06-21",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0049",
+   "date": "2026-01-24",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0050",
+   "date": "2026-02-23",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0050",
+   "date": "2026-06-16",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0050",
+   "date": "2026-08-07",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0051",
+   "date": "2026-05-27",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0051",
+   "date": "2026-04-07",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0051",
+   "date": "2026-03-11",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0051",
+   "date": "2026-07-03",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0051",
+   "date": "2026-08-04",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0052",
+   "date": "2026-04-05",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0052",
+   "date": "2026-06-28",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0052",
+   "date": "2026-01-22",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-07-06",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-06-04",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-04-07",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-02-24",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-05-12",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-06-27",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0053",
+   "date": "2026-02-04",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-08-01",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-07-10",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-03-17",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-08-03",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-04-08",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0054",
+   "date": "2026-09-24",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-06-18",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-04-22",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-04-06",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-07-25",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-02-23",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-01-05",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0055",
+   "date": "2026-06-12",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-08-03",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-06-08",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-05-27",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-06-01",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-09-15",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0056",
+   "date": "2026-03-01",
+   "npi": "1000000103",
+   "entity": "E02",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0057",
+   "date": "2026-09-23",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0057",
+   "date": "2026-04-26",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0057",
+   "date": "2026-04-17",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0057",
+   "date": "2026-04-03",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0058",
+   "date": "2026-09-27",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0058",
+   "date": "2026-07-10",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0058",
+   "date": "2026-02-26",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0058",
+   "date": "2026-04-21",
+   "npi": "1000000106",
+   "entity": "E03",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0059",
+   "date": "2026-02-17",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0059",
+   "date": "2026-06-28",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0060",
+   "date": "2026-05-10",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0060",
+   "date": "2026-02-23",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0060",
+   "date": "2026-01-02",
+   "npi": "1000000102",
+   "entity": "E01",
+   "kind": "office visit"
+  },
+  {
+   "enrollee": "PT-0003",
+   "npi": "1000000101",
+   "entity": "E01",
+   "kind": "office visit",
+   "date": "2026-05-12"
+  }
+ ],
+ "claims": [
+  {
+   "id": "C0001",
+   "enrollee": "PT-0001",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-16",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0002",
+   "enrollee": "PT-0002",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-02-07",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0003",
+   "enrollee": "PT-0002",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-08-02",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0004",
+   "enrollee": "PT-0003",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-21",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0005",
+   "enrollee": "PT-0003",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-10",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0006",
+   "enrollee": "PT-0004",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-21",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0007",
+   "enrollee": "PT-0004",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-26",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0008",
+   "enrollee": "PT-0004",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-06",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0009",
+   "enrollee": "PT-0005",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-07-24",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0010",
+   "enrollee": "PT-0006",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-19",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0011",
+   "enrollee": "PT-0006",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-05",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0012",
+   "enrollee": "PT-0007",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-04-01",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0013",
+   "enrollee": "PT-0007",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-09-18",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0014",
+   "enrollee": "PT-0007",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-01-04",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0015",
+   "enrollee": "PT-0008",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-15",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0016",
+   "enrollee": "PT-0008",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-08-07",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0017",
+   "enrollee": "PT-0009",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-01",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0018",
+   "enrollee": "PT-0010",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-13",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0019",
+   "enrollee": "PT-0010",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-02-04",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0020",
+   "enrollee": "PT-0010",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-01-12",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0021",
+   "enrollee": "PT-0011",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-17",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0022",
+   "enrollee": "PT-0011",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-01-28",
+   "paid": 95,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0023",
+   "enrollee": "PT-0011",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-19",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0024",
+   "enrollee": "PT-0012",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-05",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0025",
+   "enrollee": "PT-0012",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-08-24",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0026",
+   "enrollee": "PT-0013",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-01-12",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0027",
+   "enrollee": "PT-0013",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-02-23",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0028",
+   "enrollee": "PT-0013",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-14",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0029",
+   "enrollee": "PT-0014",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-12",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0030",
+   "enrollee": "PT-0015",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-03-03",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0031",
+   "enrollee": "PT-0016",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-03-03",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0032",
+   "enrollee": "PT-0016",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-28",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0033",
+   "enrollee": "PT-0017",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-03-06",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0034",
+   "enrollee": "PT-0018",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-04-16",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0035",
+   "enrollee": "PT-0018",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-06-18",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0036",
+   "enrollee": "PT-0019",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-01",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0037",
+   "enrollee": "PT-0019",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-03-17",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0038",
+   "enrollee": "PT-0020",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-04-18",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0039",
+   "enrollee": "PT-0020",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-07-25",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0040",
+   "enrollee": "PT-0021",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-01-06",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0041",
+   "enrollee": "PT-0021",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-02-09",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0042",
+   "enrollee": "PT-0022",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-08",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0043",
+   "enrollee": "PT-0022",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-20",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0044",
+   "enrollee": "PT-0023",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-18",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0045",
+   "enrollee": "PT-0024",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-01-07",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0046",
+   "enrollee": "PT-0024",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-08-02",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0047",
+   "enrollee": "PT-0025",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-08-01",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0048",
+   "enrollee": "PT-0025",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-21",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0049",
+   "enrollee": "PT-0026",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-28",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0050",
+   "enrollee": "PT-0026",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-01-12",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0051",
+   "enrollee": "PT-0027",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-02-25",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0052",
+   "enrollee": "PT-0028",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-17",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0053",
+   "enrollee": "PT-0028",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-01-06",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0054",
+   "enrollee": "PT-0028",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-06-06",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0055",
+   "enrollee": "PT-0029",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-03-07",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0056",
+   "enrollee": "PT-0029",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-27",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0057",
+   "enrollee": "PT-0029",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-06-22",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0058",
+   "enrollee": "PT-0030",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-01-06",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0059",
+   "enrollee": "PT-0030",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-21",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0060",
+   "enrollee": "PT-0031",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-05-27",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0061",
+   "enrollee": "PT-0032",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-27",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0062",
+   "enrollee": "PT-0033",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-18",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0063",
+   "enrollee": "PT-0034",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-16",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0064",
+   "enrollee": "PT-0034",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-03",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0065",
+   "enrollee": "PT-0035",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-06",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0066",
+   "enrollee": "PT-0036",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-02-06",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0067",
+   "enrollee": "PT-0037",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-03-07",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0068",
+   "enrollee": "PT-0038",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-06-16",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0069",
+   "enrollee": "PT-0038",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-04-10",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0070",
+   "enrollee": "PT-0039",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-21",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0071",
+   "enrollee": "PT-0039",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-22",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0072",
+   "enrollee": "PT-0040",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-22",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0073",
+   "enrollee": "PT-0040",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-03-05",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0074",
+   "enrollee": "PT-0040",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-12",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0075",
+   "enrollee": "PT-0041",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-04-19",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0076",
+   "enrollee": "PT-0041",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-06",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0077",
+   "enrollee": "PT-0042",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-12",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0078",
+   "enrollee": "PT-0042",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-02-26",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0079",
+   "enrollee": "PT-0042",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-13",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0080",
+   "enrollee": "PT-0043",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-02-22",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0081",
+   "enrollee": "PT-0043",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-01-27",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0082",
+   "enrollee": "PT-0043",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-04-10",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0083",
+   "enrollee": "PT-0044",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-04-19",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0084",
+   "enrollee": "PT-0044",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-08-01",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0085",
+   "enrollee": "PT-0045",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-15",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0086",
+   "enrollee": "PT-0045",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-13",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0087",
+   "enrollee": "PT-0046",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-02-17",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0088",
+   "enrollee": "PT-0046",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-08-25",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0089",
+   "enrollee": "PT-0047",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-04",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0090",
+   "enrollee": "PT-0047",
+   "npi": "1000000104",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-19",
+   "paid": 95,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0091",
+   "enrollee": "PT-0048",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-07",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0092",
+   "enrollee": "PT-0049",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-04",
+   "paid": 92,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0093",
+   "enrollee": "PT-0049",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-03-16",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0094",
+   "enrollee": "PT-0050",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-02-23",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0095",
+   "enrollee": "PT-0051",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-27",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0096",
+   "enrollee": "PT-0051",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-04-07",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0097",
+   "enrollee": "PT-0052",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-04-05",
+   "paid": 101,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0098",
+   "enrollee": "PT-0053",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-07-06",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0099",
+   "enrollee": "PT-0053",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-04",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0100",
+   "enrollee": "PT-0054",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-08-01",
+   "paid": 95,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0101",
+   "enrollee": "PT-0055",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-06-18",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0102",
+   "enrollee": "PT-0056",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-08-03",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0103",
+   "enrollee": "PT-0056",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-06-08",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0104",
+   "enrollee": "PT-0056",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-27",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0105",
+   "enrollee": "PT-0057",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-23",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0106",
+   "enrollee": "PT-0057",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-26",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0107",
+   "enrollee": "PT-0057",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-04-17",
+   "paid": 92,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0108",
+   "enrollee": "PT-0058",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-09-27",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0109",
+   "enrollee": "PT-0058",
+   "npi": "1000000106",
+   "entity": "E03",
+   "code": "99213",
+   "date": "2026-07-10",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0110",
+   "enrollee": "PT-0059",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-02-17",
+   "paid": 95,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0111",
+   "enrollee": "PT-0059",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-06-28",
+   "paid": 88,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0112",
+   "enrollee": "PT-0060",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-10",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0113",
+   "enrollee": "PT-0060",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-02-23",
+   "paid": 88,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0114",
+   "enrollee": "PT-0060",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-01-02",
+   "paid": 101,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0115",
+   "enrollee": "PT-0003",
+   "npi": "1000000101",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-12",
+   "paid": 95,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0116",
+   "enrollee": "PT-0003",
+   "npi": "1000000110",
+   "entity": "E08",
+   "code": "99213",
+   "date": "2026-05-12",
+   "paid": 140,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0117",
+   "enrollee": "PT-0007",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99449",
+   "date": "2026-03-03",
+   "paid": 210,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0118",
+   "enrollee": "PT-0007",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99449",
+   "date": "2026-04-14",
+   "paid": 210,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0119",
+   "enrollee": "PT-0007",
+   "npi": "1000000105",
+   "entity": "E03",
+   "code": "99449",
+   "date": "2026-06-02",
+   "paid": 210,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0120",
+   "enrollee": "PT-0011",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-02-09",
+   "paid": 318,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0121",
+   "enrollee": "PT-0011",
+   "npi": "1000000102",
+   "entity": "E01",
+   "code": "99213",
+   "date": "2026-05-19",
+   "paid": 318,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0122",
+   "enrollee": "PT-0011",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-02-16",
+   "paid": 96,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0123",
+   "enrollee": "PT-0011",
+   "npi": "1000000103",
+   "entity": "E02",
+   "code": "99213",
+   "date": "2026-05-26",
+   "paid": 96,
+   "payer": "Medicare"
+  },
+  {
+   "id": "C0124",
+   "enrollee": "PT-0014",
+   "npi": "1000000109",
+   "entity": "E09",
+   "code": "97597",
+   "date": "2026-04-08",
+   "paid": 240,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0125",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-01-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0126",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-02-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0127",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-03-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0128",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-04-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0129",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-05-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0130",
+   "enrollee": "PT-0077",
+   "npi": "1000000108",
+   "entity": "E06",
+   "code": "99451",
+   "date": "2026-06-15",
+   "paid": 260,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0131",
+   "enrollee": "PT-0021",
+   "npi": "1000000107",
+   "entity": "E04",
+   "code": "99213",
+   "date": "2026-04-19",
+   "paid": 130,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0132",
+   "enrollee": "PT-0031",
+   "npi": "1000000110",
+   "entity": "E08",
+   "code": "99451",
+   "date": "2026-03-10",
+   "paid": 120,
+   "payer": "Medicaid"
+  },
+  {
+   "id": "C0133",
+   "enrollee": "PT-0031",
+   "npi": "1000000110",
+   "entity": "E08",
+   "code": "99451",
+   "date": "2026-04-10",
+   "paid": 120,
+   "payer": "Medicaid"
+  }
+ ]
+}
