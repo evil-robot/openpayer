@@ -181,6 +181,10 @@ for src in load_sources():
         print(f"- {src.payer}: taking {len(urls)} of {'at least ' if index_capped else ''}{files_in_index} files from index dated {toc_date}")
     elif limit:
         urls = urls[:limit]
+    # Payer indexes list the same file under many plans and entities.
+    # A repeated URL is the same file: pull it once or the same rates
+    # land twice under two ledger names.
+    urls = list(dict.fromkeys(urls))
     if smallest_first and limit and len(urls) > limit:
         # First-pass coverage, fastest first: size every candidate with a
         # HEAD request and take the smallest. Giant national files parse
@@ -200,8 +204,11 @@ for src in load_sources():
         with ThreadPoolExecutor(max_workers=8) as pool:
             sizes = list(pool.map(_size, urls))
         order = sorted(range(len(urls)), key=lambda i: sizes[i])
-        urls = [urls[i] for i in order[:limit]]
-        print(f"- {src.payer}: smallest-first chose {len(urls)} of {len(order)} candidates, sizes MB: {[round(s / 1e6, 1) if s != float('inf') else '?' for s in sorted(sizes)[:limit]]}")
+        chosen = [(urls[i], sizes[i]) for i in order[:limit]]
+        urls = [u for u, _ in chosen]
+        print(f"- {src.payer}: smallest-first chose {len(urls)} of {len(order)} distinct candidates:")
+        for u, s in chosen:
+            print(f"    {s / 1e6:,.1f} MB  {u.rsplit('/', 1)[-1][:110]}")
     if not urls:
         print(f"- {src.payer}: no files, skipped")
         continue
