@@ -130,6 +130,15 @@ def rates_for_code(code: str, payer: str | None = None, limit: int = 500) -> lis
         return con.execute(sql, params).fetchall()
 
 
+def all_rates() -> list[dict]:
+    """Every stored dollar rate row, for flag computation (flags.py)."""
+    with _connect() as con:
+        return con.execute(
+            "SELECT payer, billing_code, negotiated_type, negotiated_rate, tin "
+            "FROM rates WHERE negotiated_rate IS NOT NULL AND negotiated_type <> 'percentage'"
+        ).fetchall()
+
+
 def file_rows_kept(loaded_file: str) -> int | None:
     """Rows kept for a finished file, or None if it was never pulled."""
     with _connect() as con:

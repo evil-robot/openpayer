@@ -1,0 +1,65 @@
+{
+  "source": "CMS National Physician Fee Schedule Relative Value File, 2026 January release (RVU26A, updated 12/29/2025)",
+  "source_url": "https://www.cms.gov/files/zip/rvu26a.zip",
+  "member_file": "PPRRVU2026_Jan_nonQPP.csv",
+  "basis": "National rate before geographic adjustment: total non-facility RVU x conversion factor from the same file (all GPCI = 1.0). Dollar figures only; no AMA code descriptions are reproduced.",
+  "conversion_factor": 33.4009,
+  "codes": {
+    "99213": {
+      "work_rvu": 1.3,
+      "pe_rvu_nonfacility": 1.46,
+      "mp_rvu": 0.09,
+      "total_rvu_nonfacility": 2.85,
+      "medicare_rate_national": 95.19
+    },
+    "99446": {
+      "work_rvu": 0.35,
+      "pe_rvu_nonfacility": 0.18,
+      "mp_rvu": 0.04,
+      "total_rvu_nonfacility": 0.57,
+      "medicare_rate_national": 19.04
+    },
+    "99447": {
+      "work_rvu": 0.7,
+      "pe_rvu_nonfacility": 0.37,
+      "mp_rvu": 0.07,
+      "total_rvu_nonfacility": 1.14,
+      "medicare_rate_national": 38.08
+    },
+    "99448": {
+      "work_rvu": 1.05,
+      "pe_rvu_nonfacility": 0.56,
+      "mp_rvu": 0.09,
+      "total_rvu_nonfacility": 1.7,
+      "medicare_rate_national": 56.78
+    },
+    "99449": {
+      "work_rvu": 1.4,
+      "pe_rvu_nonfacility": 0.76,
+      "mp_rvu": 0.12,
+      "total_rvu_nonfacility": 2.28,
+      "medicare_rate_national": 76.15
+    },
+    "99451": {
+      "work_rvu": 0.7,
+      "pe_rvu_nonfacility": 0.31,
+      "mp_rvu": 0.05,
+      "total_rvu_nonfacility": 1.06,
+      "medicare_rate_national": 35.4
+    },
+    "99452": {
+      "work_rvu": 0.7,
+      "pe_rvu_nonfacility": 0.36,
+      "mp_rvu": 0.05,
+      "total_rvu_nonfacility": 1.11,
+      "medicare_rate_national": 37.07
+    },
+    "G2212": {
+      "work_rvu": 0.61,
+      "pe_rvu_nonfacility": 0.36,
+      "mp_rvu": 0.05,
+      "total_rvu_nonfacility": 1.02,
+      "medicare_rate_national": 34.07
+    }
+  }
+}

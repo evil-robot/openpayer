@@ -160,6 +160,22 @@ def sources_detail() -> list[dict]:
     return out
 
 
+def flags_input(db_path: Path = DB_PATH) -> list[dict]:
+    """Every stored dollar rate row, shaped for flags.compute_flags."""
+    from . import pg_store
+
+    if pg_store.enabled():
+        return pg_store.all_rates()
+    con = connect(db_path)
+    rows = con.execute(
+        "SELECT payer, billing_code, negotiated_type, negotiated_rate, tin "
+        "FROM rates WHERE negotiated_rate IS NOT NULL AND negotiated_type <> 'percentage'"
+    ).fetchall()
+    cols = [d[0] for d in con.description]
+    con.close()
+    return [dict(zip(cols, r)) for r in rows]
+
+
 def rates_for_code(code: str, db_path: Path = DB_PATH, payer: str | None = None, limit: int = 500) -> list[dict]:
     from . import pg_store
 
