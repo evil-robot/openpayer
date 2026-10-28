@@ -26,11 +26,16 @@ import tempfile  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 # Lakebase credential for this workspace identity (expires in about an hour;
-# the job mints a fresh one each run). Raw REST via the SDK api client: the
-# preinstalled SDK on serverless can predate the database namespace.
+# the job mints a fresh one each run). The request_id must be unique per
+# run: reusing one returns the cached, by-then-expired credential and
+# Lakebase answers "OAuth: User is not authorized". Raw REST via the SDK
+# api client: the preinstalled SDK on serverless can predate the
+# database namespace.
+import time as _time
+
 w = WorkspaceClient()
 api = w.api_client
-cred = api.do("POST", "/api/2.0/database/credentials", body={"request_id": "openpayer-ingest", "instance_names": ["ar-fleet"]})
+cred = api.do("POST", "/api/2.0/database/credentials", body={"request_id": f"openpayer-ingest-{int(_time.time())}", "instance_names": ["ar-fleet"]})
 instance = api.do("GET", "/api/2.0/database/instances/ar-fleet")
 me = api.do("GET", "/api/2.0/preview/scim/v2/Me")
 token = cred.get("token") if isinstance(cred, dict) else cred.token
@@ -77,6 +82,19 @@ except ValueError:
 print(f"config: limit={limit} workers={n_workers} only={sorted(only) or 'all'}")
 
 
+def _fresh_lakebase_dsn() -> None:
+    """Mint a short-lived Lakebase credential and point pg_store at it.
+
+    Credentials live about an hour and a national pull runs longer, so
+    each file load mints its own instead of trusting the one from job
+    start. Concurrent mints are harmless: every token names the same
+    workspace identity.
+    """
+    c = api.do("POST", "/api/2.0/database/credentials", body={"request_id": f"openpayer-ingest-{int(_time.time() * 1000)}", "instance_names": ["ar-fleet"]})
+    t = c.get("token") if isinstance(c, dict) else c.token
+    os.environ["LAKEBASE_DSN"] = f"host={dns} port=5432 dbname=openpayer user={user} password={t} sslmode=require"
+
+
 def _pull_file(job):
     """Download, filter to the allowlist, and load one MRF. Returns stats."""
     src, i, url = job
@@ -96,6 +114,7 @@ def _pull_file(job):
 
             from openpayer import pg_store
 
+            _fresh_lakebase_dsn()
             with psycopg.connect(pg_store.dsn()) as con:
                 con.execute("DELETE FROM rates WHERE loaded_file = %s", [fname])
             kept = insert_rows(rows, fname)
