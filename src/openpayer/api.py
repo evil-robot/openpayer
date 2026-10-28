@@ -415,6 +415,10 @@ def _freshness(detail: dict) -> tuple[str, str]:
     if not detail.get("pulled_at"):
         return ("Configured, not pulled yet.", "")
     idx = detail.get("index_last_updated_on") or ""
+    if not idx:
+        if not detail.get("index_url"):
+            return (f"Direct file list, no single payer index to age. Pulled {str(detail.get('pulled_at') or '')[:10]}.", "")
+        return ("Pulled. Payer index date not recorded.", "")
     try:
         age = (date.today() - date.fromisoformat(idx)).days
     except ValueError:
@@ -462,20 +466,24 @@ def _corpus_meter(inv: dict, summary_rows: list[dict], n_codes: int) -> str:
             fresh = "<span>Not configured: no published index address found yet.</span>"
         elif nrows == 0:
             fresh = "<span>Searched, no rows kept yet.</span>"
+        elif not pulled:
+            fresh = "<span>Rows are in the corpus; this source's pull status is not recorded yet.</span>"
+        elif not idx:
+            fresh = f"<span>Direct file list, no single index date to age. Pulled {html.escape(pulled)}.</span>"
         else:
             try:
                 age = (_date.today() - _date.fromisoformat(idx)).days
             except ValueError:
                 age = None
             if age is None:
-                fresh = "<span>Pulled. Index date not recorded.</span>"
+                fresh = f"<span>Pulled {html.escape(pulled)}. Index date not recorded.</span>"
             elif age <= 120:
                 fresh = f"<span class='fresh-fresh'>Fresh: index {html.escape(idx)}, {max(age, 0)} days old.</span>"
             else:
                 fresh = f"<span class='fresh-stale'>Past the quarterly cycle: index {html.escape(idx)}, {age} days old.</span>"
         pct = (nrows / max_rows * 100) if nrows else 0.0
         if nrows:
-            stat = f"{nrows:,} rate rows · {nfiles} kept files · {ncodes} of {n_codes} codes · pulled {html.escape(pulled) or 'never'}"
+            stat = f"{nrows:,} rate rows · {nfiles} kept file{'s' if nfiles != 1 else ''} · {ncodes} of {n_codes} codes · pulled {html.escape(pulled) or 'date not recorded'}"
         else:
             stat = "0 rate rows kept"
         parts.append(
@@ -687,7 +695,7 @@ def _sources_section() -> str:
             "<td class='n'>{files}</td><td class='n'>{kept}</td><td class='{cls}'>{verdict}</td></tr>".format(
                 payer=html.escape(str(d["payer"])), stype=html.escape(str(d["source_type"])), idx=idx_link,
                 idate=html.escape(str(d["index_last_updated_on"] or "not recorded")),
-                pulled=html.escape(str((d["pulled_at"] or "never")[:10])),
+                pulled=html.escape(str((d["pulled_at"] or "not recorded")[:10])),
                 files=(
                     (f"{d['files_attempted']} of at least {d['files_in_index']:,} in index (count capped)" if d.get("index_count_capped")
                      else f"{d['files_attempted']} of {d['files_in_index']} in index") if d["files_attempted"] is not None else "none"
