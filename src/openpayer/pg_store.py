@@ -134,7 +134,7 @@ def file_rows_kept(loaded_file: str) -> int | None:
     """Rows kept for a finished file, or None if it was never pulled."""
     with _connect() as con:
         row = con.execute("SELECT rows_kept FROM pulled_files WHERE loaded_file = %s", [loaded_file]).fetchone()
-    return None if row is None else row[0]
+    return None if row is None else row["rows_kept"]
 
 
 def mark_file(loaded_file: str, payer: str, rows_kept: int) -> None:
@@ -152,10 +152,10 @@ def payer_code_groups(payer: str) -> dict[str, int]:
     """Distinct provider groups (by tax ID) kept per billing code for a payer."""
     with _connect() as con:
         rows = con.execute(
-            "SELECT billing_code, count(DISTINCT NULLIF(tin, '')) FROM rates WHERE payer = %s GROUP BY billing_code",
+            "SELECT billing_code, count(DISTINCT NULLIF(tin, '')) AS n_groups FROM rates WHERE payer = %s GROUP BY billing_code",
             [payer],
         ).fetchall()
-    return {r[0]: r[1] for r in rows}
+    return {r["billing_code"]: r["n_groups"] for r in rows}
 
 
 def upsert_source_status(rows: list[dict]) -> int:
