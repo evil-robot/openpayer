@@ -209,6 +209,21 @@ Small samples say so (Cox flags rest on n=13 and read as thin,
 correctly). Surfaced on the homepage flags table and at
 `/api/flags` and `/api/flags.csv`.
 
+### Relation to the MedTruth CMS brief
+
+"Check the Record First" (MedTruth, prepared for CMS Program
+Integrity leadership, October 2026, by Dustin Raney) is the parent
+pitch: a high-risk claim is checked against the patient's whole
+clinical record before Medicare or Medicaid pays it. OpenPayer is
+the rate-side companion to that brief, one step earlier in the
+chain. The brief needs a billed claim to test; OpenPayer needs only
+the rate the payer published, so its flags exist before any claim,
+any patient, or any record access. Same doctrine, two evidence
+classes: filed rates against the federal schedule (public data, no
+PHI), then claims against the clinical record (authorized data).
+A flag from this corpus is a reason to hold a provider's claims for
+the record check the brief describes.
+
 ### Prior art and landscape
 
 | Project | What it is | State |
