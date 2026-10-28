@@ -119,6 +119,7 @@ stubbed in `reference.py`) is its prerequisite.
 | 2026-10-27 | Gated demo in MedTruth, @medtruth.care emails only | JAS |
 | 2026-10-28 | Pull pattern: one job per payer, ledgered, coverage stop, provider-group sample (DataSpine pattern) | JAS (plan approved) |
 | 2026-10-28 | Rename recommended before public launch (Trek collision) | Assistant, pending JAS |
+| 2026-10-28 | Reposition around fraud, waste, and abuse review: filed rates lined up against the CMS fee schedule, flags for human review, never public accusations | JAS |
 
 ## 6. Open questions
 
@@ -128,3 +129,107 @@ stubbed in `reference.py`) is its prerequisite.
 - Public demo posture after rename: open the gate, keep it gated, or
   publish the kept dataset (Parquet) as the public artifact?
 - Open Payments layer: in or out, after NPPES lands?
+- FWA flags: who is the first reviewer this is built for (CMS program
+  integrity, a state Medicaid Fraud Control Unit, a payer SIU, or the
+  public), and what do they need a flag to carry before they act on it?
+
+## 7. Fraud, waste, and abuse: the CMS lineup (direction set 2026-10-28)
+
+### Why now: the enforcement context (checked 2026-10-28)
+
+- DOJ 2026 National Health Care Fraud Takedown (June 23, 2026): 455
+  defendants including 90 doctors and licensed medical professionals,
+  over $6.5 billion in alleged false claims, 56 federal districts, 45
+  states and territories, 50 state Medicaid Fraud Control Units, over
+  $182 million seized. In the same action CMS suspended 1,079
+  providers and revoked billing privileges for 1,403, and HHS-OIG
+  brought 25 actions seeking over $10 billion from payments CMS caught
+  and suspended before they were paid. DOJ describes "the cutting-edge
+  use of data analytics to target the worst actors."
+  Source: https://www.justice.gov/opa/pr/national-health-care-fraud-takedown-results-455-defendants-charged-connection-over-65
+- CMS Administrator Dr. Mehmet Oz, same release: "Prosecuting
+  criminals who steal from American patients is necessary, but
+  stopping them before a single dollar leaves the building is
+  smarter. CMS is done playing catch-up. We're deploying advanced
+  data analytics to expose fraud networks, freeze suspicious payments,
+  and shut down bad actors before they can do damage."
+- CMS, May 13, 2026: six-month nationwide moratoria on new Medicare
+  enrollment for hospices and home health agencies, coordinated with
+  the Vice President's Anti-Fraud Task Force, with "advanced data
+  analytics" and accelerated removals during the window. Applies to
+  initial enrollment and certain majority-ownership changes.
+  Source: https://www.cms.gov/newsroom/press-releases/cms-announces-aggressive-nationwide-crackdown-fraud-six-month-hospice-home-health-agency-enrollment
+- Oz to Minnesota Governor Walz (December 2025 letter, entered into
+  the House Oversight record January 7, 2026 as
+  HHRG-119-GO00-20260107-SD043): weekly fraud updates, a six-month
+  freeze on high-risk provider enrollment, verification or removal of
+  existing providers, and a corrective action plan, in 60 days, or
+  the federal share stops. The programs named: Housing Stabilization
+  Services (expected $2.6 million a year, paid over $100 million) and
+  early autism intervention ($3 million in 2018 to nearly $400
+  million in 2023). Our copy of the letter is a news reproduction in
+  the hearing record; the CMS actions are the fact pattern, and the
+  figures should be re-checked against CMS before any external use.
+- The thread: CMS is standing up analytics to find bad actors before
+  payment. This corpus is pre-claim by construction. It holds
+  contracted rates as filed, before any claim exists, which is the
+  one vantage the claims-trained tools below do not have.
+
+### What this data can and cannot show
+
+Can show: filed rates measured against the Medicare fee schedule;
+placeholder pricing inside a payer's own file ($1 or less); one
+default amount stretched across hundreds of provider groups; codes
+or files a payer does not publish at all (transparency rules require
+them, so absence is itself actionable); the same code priced wildly
+differently across payers.
+
+Cannot show: what was billed or paid (that is claims data), medical
+necessity, upcoding in practice, kickbacks. We never claim otherwise,
+on the site or anywhere else. A flag is a reason for a reviewer to
+open the underlying payer file, which every rate here links to.
+
+### Signals v1 (live 2026-10-28, `src/openpayer/flags.py`)
+
+Thresholds are named constants at the top of the module, changed
+only in the open. Medicare ruler: CMS 2026 Physician Fee Schedule
+(RVU26A), national rate before geographic adjustment, via
+`scripts/pull_mpfs.py` into `data/reference/mpfs.json`.
+
+| Signal | Threshold | First live result |
+|---|---|---|
+| Median far above Medicare | median negotiated >= 4x Medicare | Cox consult codes: flat $162 median = 425% to 851% of Medicare (n=13 each) |
+| Extreme rates | >= 3 rates at >= 10x Medicare | Cox 99446: 4 of 13 at 10x or more, max $332 = 1,744% |
+| Placeholder prices | >= 20% of rates at $1.00 or less (n >= 20) | none yet |
+| One amount, many groups | one amount on >= 50 groups and >= 90% of rates | Elevance: $131.22 across all 917 groups for 99447, same pattern 99451/99452 |
+| Code not published | payer silent where >= 2 peers publish | G2212 missing at Cox and Elevance; 99446 missing at Elevance |
+
+First run over the live corpus: 11 flags from 44,468 dollar rates.
+Small samples say so (Cox flags rest on n=13 and read as thin,
+correctly). Surfaced on the homepage flags table and at
+`/api/flags` and `/api/flags.csv`.
+
+### Prior art and landscape
+
+| Project | What it is | State |
+|---|---|---|
+| zhousrhhh/Healthcare-Fraud-Detection | Notebook ML (PCA, KNN, isolation forest) on Medicare inpatient claims | 2023, dormant, no license |
+| Pyligent/CMS-Medicare-Data-FRAUD-Detection | 2019 capstone, anomaly detection on Medicare claims and Part D | dormant |
+| trytrench/trench | Open-source fraud and abuse prevention for product event streams | AGPL-3.0, dormant since 2024; different fraud, license blocks reuse |
+| HHS on GitHub (hhs.github.io) | Healthcare Fraud Prevention Partnership exchange; Medicaid Provider Enrollment Screener with risk scoring | the government builds FWA tooling in the open too (CMSgov org) |
+
+Every ML project above trains on claims after the money moved. Ours
+reads filed rates before claims exist, with per-rate lineage to the
+payer's own published file, under Apache-2.0.
+
+### Build order
+
+1. Done 2026-10-28: MPFS lineup, flags v1, homepage flags section,
+   `/api/flags` JSON and CSV.
+2. Code pages: percent of Medicare beside each payer median; flags
+   repeated inside the payer sections they belong to.
+3. NPPES join, then geography: outliers by state and locality with
+   the GPCI-adjusted ruler from the same CMS zip.
+4. Flag dossiers: one exportable page per flag carrying the rate
+   rows and file links underneath it, ready to hand to a reviewer.
+5. Refresh deltas: rates that jump between quarterly payer files.
