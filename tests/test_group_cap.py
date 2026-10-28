@@ -48,3 +48,37 @@ def test_group_cap_off_under_threshold(tmp_path):
     path.write_text(json.dumps(_doc(4)))
     rows = list(parse_mrf(str(path), {"99213"}, payer="Big", group_cap=3, group_threshold=5))
     assert len({r["tin"] for r in rows}) == 4
+
+
+def test_group_cap_counts_groups_not_references(tmp_path):
+    # Aetna shape: few references, each packing many provider groups.
+    doc = {
+        "reporting_entity_name": "Fat Payer",
+        "provider_references": [
+            {
+                "provider_group_id": 1,
+                "provider_groups": [
+                    {"tin": {"type": "ein", "value": f"98-7654{i:03d}", "business_name": f"Clinic {i}"}, "npi": [2000000000 + i]}
+                    for i in range(10)
+                ],
+            }
+        ],
+        "in_network": [
+            {
+                "billing_code": "99213",
+                "billing_code_type": "CPT",
+                "negotiated_rates": [
+                    {
+                        "provider_references": [1],
+                        "negotiated_prices": [
+                            {"negotiated_type": "negotiated", "negotiated_rate": 100.0, "billing_class": "professional"}
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    path = tmp_path / "fat.json"
+    path.write_text(json.dumps(doc))
+    rows = list(parse_mrf(str(path), {"99213"}, payer="Fat", group_cap=3, group_threshold=5))
+    assert len({r["tin"] for r in rows}) == 3

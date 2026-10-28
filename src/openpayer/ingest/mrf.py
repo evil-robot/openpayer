@@ -144,11 +144,21 @@ def _provider_index(
         pass
     finally:
         stream.close()
-    if not group_cap or len(index) <= group_threshold:
+    total_groups = sum(len(groups) for groups in index.values())
+    if not group_cap or total_groups <= group_threshold:
         return index, None
-    ranked = sorted(index.items(), key=lambda kv: min((_group_key(g) for g in kv[1]), default=""))
-    kept = dict(ranked[:group_cap])
-    kept_keys = {_group_key(g) for groups in kept.values() for g in groups}
+    # Cap GROUPS, not reference IDs: some payers pack thousands of
+    # provider groups under one reference (Aetna does), so counting
+    # references let 290,212 TINs through a "300" cap.
+    pairs = sorted(
+        ((_group_key(g), gid, g) for gid, groups in index.items() for g in groups),
+        key=lambda p: p[0],
+    )
+    kept: dict[str, list[dict]] = {}
+    kept_keys: set[str] = set()
+    for key, gid, g in pairs[:group_cap]:
+        kept.setdefault(gid, []).append(g)
+        kept_keys.add(key)
     return kept, kept_keys
 
 
