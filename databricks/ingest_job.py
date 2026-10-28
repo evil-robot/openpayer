@@ -171,7 +171,11 @@ for src in load_sources():
     index_capped = False
     if src.toc_url:
         try:
-            collect_limit = max(limit * 8, 24) if (smallest_first and limit) else limit
+            # Smallest-first needs a diverse pool before sizing: payer
+            # indexes repeat the same file under many plans, so the
+            # first entries dedupe to a handful. 5,000 entries spans a
+            # whole mid-size index; the count cap still bounds the pass.
+            collect_limit = 5000 if smallest_first else limit
             entries, index_total, toc_date, index_capped = collect_toc(src.toc_url, limit=collect_limit)
         except Exception as exc:
             print(f"- {src.payer}: index unreadable, skipped: {exc}")
@@ -185,6 +189,7 @@ for src in load_sources():
     # A repeated URL is the same file: pull it once or the same rates
     # land twice under two ledger names.
     urls = list(dict.fromkeys(urls))
+    print(f"- {src.payer}: {len(urls)} distinct files after dedupe")
     if smallest_first and limit and len(urls) > limit:
         # First-pass coverage, fastest first: size every candidate with a
         # HEAD request and take the smallest. Giant national files parse
