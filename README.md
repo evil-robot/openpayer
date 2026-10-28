@@ -11,17 +11,27 @@ for every rate.
 
 ## Live sample in this repo's demo
 
-The demo is configured for 8 codes and one regional payer to prove the chain
-end to end:
+The demo is configured for 8 codes: 99213, 99446, 99447, 99448, 99449,
+99451, 99452, G2212.
 
-- Codes: 99213, 99446, 99447, 99448, 99449, 99451, 99452, G2212
-- Payer: Cox HealthPlans, Transparency in Coverage index dated 2026-09-16
-- First local sample (40 of 89 files): 179 rate rows from 23 files.
-- Full index, pulled server-side by the Databricks job on 2026-10-27:
-  507 rate rows from 53 files, zero failures. The live site reads these
-  from Lakebase, so its numbers update with every refresh. The table
-  below is the first local sample, kept as the reproducible starting
-  point; run the pull to regenerate it.
+Live today: Cox HealthPlans (index dated 2026-09-16), pulled server-side
+by the Databricks job on 2026-10-27: 507 rate rows from 53 files, zero
+failures. The live site reads these from Lakebase, so its numbers update
+with every refresh.
+
+Configured and pulling in bounded first passes (files searched of files
+in index is shown live on the site; index sizes measured 2026-10-27):
+
+| Payer | Index | Files in index |
+|---|---|---|
+| UnitedHealthcare | UnitedHealthcare Insurance Company table of contents | 1,013 |
+| Aetna | Aetna Life Insurance Company via the HealthSparq manifest | 5,697 in-network files |
+| Cigna | Cigna Health Life Insurance Company table of contents | 101,395 |
+| Elevance Anthem BCBS | National Anthem index on S3 | about 43 million (count capped at 250,000 on the site) |
+| Humana | Not configured: its published location sits behind a bot wall and no current files were found there for August 2026 | none |
+
+The table below is the first local Cox sample (179 rows from 23 files),
+kept as the reproducible starting point; run the pull to regenerate it.
 
 | Code | Rate type | n | p25 | Median | p75 |
 |---|---|---|---|---|---|
@@ -101,25 +111,38 @@ uv run openpayer-pull --dry-run
 ```
 
 Useful pull flags: `--limit=N` caps files per payer, `--workers=N` sets
-parallel downloads. Downloads time out per file and fail that file, never
-the run.
+parallel downloads, `--group-cap=N` sets the provider-group sample per
+file (below). Downloads resume mid-body with Range requests when a payer
+drops the connection, time out per attempt, and fail that file only,
+never the run.
 
 ## What the site shows
 
 - Live status and the configured codes
-- A Data in the demo today inventory, computed from the database on every
-  page load: total rows, kept size on disk, database size, source file
-  counts, distinct NPIs, and counts by payer, code, and rate type
-- Benchmarks per code, payer, and rate type: n, provider groups, min, p25,
-  median, p75, max
-- The Market Strip: every code on one shared dollar scale, one dot per
-  observed dollar rate (filled = negotiated, hollow = fee schedule), the
+- The market across payers: aggregate benchmarks per code and rate type
+  with the payer count on every row, then one section per payer with its
+  own coverage line (index date, pulled date, files searched of files in
+  index), its own strip and benchmark table on the same shared scale
+- The Market Strip: one row per distinct pay pattern per rate type on a
+  shared dollar scale starting at zero. Where a payer publishes identical
+  amounts for several codes, those codes share one labeled row instead of
+  repeating the same picture. One dot per observed dollar rate (filled =
+  negotiated, hollow = fee schedule; at most 240 dots drawn per row,
+  evenly spaced, with the row stating how many of n are drawn), the
   middle half (p25 to p75) shaded, the median marked, n printed per row,
-  hover for payer, amount, and provider, and an explicit n=0 row for codes
-  with no rates yet
-- A per-code page with a dot plot, a See the numbers table, and a source
-  file link on every rate
-- A JSON API: `/api/codes`, `/api/summary`, `/api/rates/{code}`
+  hover or tap for payer, amount, and provider, click to pin the panel
+  and open the source file, and an explicit n=0 row for codes with no
+  rates yet
+- Explore tools: filter every table by code, payer chips that jump to
+  each payer section, and CSV and JSON downloads (aggregate, by payer,
+  per-code rates, sources)
+- A per-code page with a median-by-payer table, payer filter, a dot
+  plot, a See the numbers table, and a source file link on every rate
+- A data inventory, computed from the database on every page load, plus
+  a Data sources and freshness table built live from the pull records
+- A JSON API: `/api/codes`, `/api/summary`, `/api/aggregate`,
+  `/api/rates/{code}`, `/api/sources`, and `.csv` variants of the
+  benchmark and rate endpoints
 
 What it does not do yet is listed on the landing page itself, with reasons:
 NPPES provider geography, percent of Medicare, hospital MRF schema,
@@ -128,29 +151,57 @@ last two are out of scope by decision).
 
 ## How it works
 
-1. Discover: read each payer table-of-contents JSON and list in-network files.
-2. Download one MRF to a temp file, stream-parse it in two passes
-   (provider references, then in-network rates filtered to the allowlist),
-   write kept rows to `data/raw/*.jsonl.gz`, delete the temp file.
-3. Repair real-world dirt on the way in: some payer files are invalid JSON
-   (trailing commas), bury provider names in the tax ID block, use bare
-   numbers for NPIs and tax IDs, or cite a bare NPI instead of a defined
-   provider group. Each has a normalizer and a regression test.
-4. Load kept rows into DuckDB (`data/rates.duckdb`, gitignored).
-5. Benchmark and serve as above.
+1. Discover: stream each payer table-of-contents JSON (never loaded
+   whole; Elevance's index is 4.2 GB) and list in-network files. The
+   index count stops at 250,000 entries and is reported as a floor
+   ("at least") wherever it appears.
+2. Download one MRF to a temp file (JSON, gzipped JSON, or ZIP of
+   either; dropped connections resume with Range requests),
+   stream-parse it in two passes (provider references, then in-network
+   rates filtered to the allowlist), write kept rows, delete the temp
+   file. Valid files parse in place; the byte-by-byte sanitizer only
+   runs on files that fail to parse.
+3. Keep the row grain sane: one national file can name over 100,000
+   provider groups and hold millions of rows for 8 codes (one Aetna
+   file holds 15.9M). From any file naming more than 2,000 groups, the
+   pull keeps the rates of about 300 provider groups, chosen the same
+   way in every file by tax ID hash. Benchmarks rest on those kept
+   groups and the counts beside them say so.
+4. Repair real-world dirt on the way in: some payer files are invalid
+   JSON (trailing commas), bury provider names in the tax ID block, use
+   bare numbers for NPIs and tax IDs, or cite a bare NPI instead of a
+   defined provider group. Each has a normalizer and a regression test.
+5. Load kept rows into DuckDB (`data/rates.duckdb`, gitignored) locally,
+   or into Lakebase Postgres in production.
+6. Benchmark and serve as above.
+
+Production pulls run as one Databricks serverless job per payer, in
+parallel, following the house DataSpine pattern: the repo is the truth
+the run executes, a per-file ledger (`pulled_files`) records what is
+done so a rerun resumes instead of starting over, rows land before any
+status row is written (the table is the receipt), and each payer stops
+early once every code rests on at least 150 kept provider groups or its
+file budget runs out. Credentials for Lakebase are minted per file
+load; they expire in about an hour and pulls run longer.
 
 ## Layout
 
 - `config/codes.json`: the code allowlist (start here)
 - `config/sources.json`: payer table-of-contents URLs
-- `src/openpayer/ingest/`: discovery, streaming parser, pull CLI
+- `src/openpayer/ingest/`: discovery (streaming, resumable), streaming
+  parser, pull CLI
 - `src/openpayer/store.py`: DuckDB load
+- `src/openpayer/pg_store.py`: Lakebase Postgres backend (same query
+  contract), pull ledger, source status
 - `src/openpayer/benchmarks.py`: percentile and inventory queries
 - `src/openpayer/reference.py`: NPPES and Medicare fee schedule wiring
   (stubs returning None until loaded; the UI shows nothing rather than a
   placeholder number)
 - `src/openpayer/api.py`: web UI and JSON API
-- `tests/`: filter, guard, dirty-file, and benchmark tests
+- `databricks/`: per-payer ingest job (serverless) and job definition
+- `docs/`: design briefs, including the Market Strip redesign
+- `tests/`: parser, dirt, guard, resume, cap, ZIP, TOC, and benchmark
+  tests (18)
 - `SPEC.md`: the full specification
 
 ## Tests
