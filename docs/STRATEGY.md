@@ -226,10 +226,21 @@ payer's own published file, under Apache-2.0.
 
 1. Done 2026-10-28: MPFS lineup, flags v1, homepage flags section,
    `/api/flags` JSON and CSV.
-2. Code pages: percent of Medicare beside each payer median; flags
-   repeated inside the payer sections they belong to.
-3. NPPES join, then geography: outliers by state and locality with
-   the GPCI-adjusted ruler from the same CMS zip.
-4. Flag dossiers: one exportable page per flag carrying the rate
-   rows and file links underneath it, ready to hand to a reviewer.
-5. Refresh deltas: rates that jump between quarterly payer files.
+2. Done 2026-10-28: percent of Medicare on code pages (answer band,
+   by-payer whiskers, median table).
+3. Done 2026-10-28: flag dossiers at `/flag` (pattern, Medicare
+   math, what would clear it, rate rows with file lineage), linked
+   from every flag in the homepage table. Every flag also carries
+   its clearing test (`clears_if`) in the JSON and CSV.
+4. Geography, in progress: `scripts/pull_nppes.py` and
+   `reference.nppes_lookup` are built and the dossier has the states
+   block, but the NPPES download host (download.cms.gov/nppes) is
+   down for maintenance "until further notice" as of 2026-10-28, so
+   no states are claimed yet. 5,041 corpus NPIs are exported and
+   waiting. When the file lands: states first, then the
+   GPCI-adjusted local ruler from the MPFS zip.
+5. Remaining: flags repeated inside homepage payer sections;
+   exposure math (filed rate x Medicare utilization, labeled
+   modeled, never observed loss); a payer compliance scoreboard
+   (publishing at all, on time, placeholder share); refresh deltas
+   between quarterly files.
