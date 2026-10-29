@@ -2,6 +2,8 @@
  "state": "Minnesota",
  "note": "SYNTHETIC DEMO DATA. Every person, provider, entity, NPI, and dollar is invented. No real patient, provider, or claim appears anywhere.",
  "generated": "2026-10-28",
+ "seed": 20261028,
+ "generator": "scripts/make_pilot_states.py",
  "codes": {
   "99213": "office visit, established patient",
   "99446": "interprofessional consult, short",

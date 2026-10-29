@@ -18,7 +18,17 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-_DATA = Path(__file__).resolve().parent / "data" / "demo" / "sample.json"
+_DATA_DIR = Path(__file__).resolve().parent / "data" / "demo"
+
+# slug -> (state name, data file). Minnesota is the original sample and
+# stays the default everywhere. Every state file is synthetic and is
+# bannered as invented; the check logic does not change per state.
+STATES = {
+    "minnesota": ("Minnesota", "sample.json"),
+    "new-york": ("New York", "new_york.json"),
+    "florida": ("Florida", "florida.json"),
+}
+DEFAULT_STATE = "minnesota"
 
 FLAG_TYPES = {
     "duplicative_billing": "Duplicative billing",
@@ -30,9 +40,58 @@ FLAG_TYPES = {
     "stacked_prescribing": "Stacked or off-record prescribing",
 }
 
+# The glass box: every check stated in the open. rule is what the code
+# compares, fires is the exact condition, clears is what a reviewer
+# would need to see for the flag to go away. If a fact cannot clear a
+# flag, the flag is wrong and the code is the thing to fix.
+CHECK_GUIDE = {
+    "duplicative_billing": {
+        "rule": "Group claims by enrollee, code, and date, then look at who billed.",
+        "fires": "The same enrollee, code, and date were billed by more than one billing entity.",
+        "clears": "Evidence the entities delivered genuinely separate services that day, or one bill is a corrected void of the other.",
+    },
+    "outside_scope": {
+        "rule": "Compare each claim's code against the billing provider's specialty scope map.",
+        "fires": "The code is not in the scope list for that provider's specialty.",
+        "clears": "A corrected specialty on the provider record, or documentation that the service sits inside that specialty's practice.",
+    },
+    "rate_mismatch": {
+        "rule": "Compare what family medicine was paid for 99213 against the cardiology median for 99213 in the same sample, and against Medicare's national rate.",
+        "fires": "A family medicine claim was paid at least twice the cardiology median for the same code.",
+        "clears": "A corrected paid amount, or documentation that the higher payment prices a different service than the code states.",
+    },
+    "cash_also_billed": {
+        "rule": "Match each enrollee's cash-pay record against their claims by code and date.",
+        "fires": "The same code on the same date appears as paid in cash and as billed to a payer.",
+        "clears": "Evidence the two records describe different services, or a refund of one of the two payments.",
+    },
+    "ghost_enrollee": {
+        "rule": "Check whether an enrollee who was billed has any record at all: visits, immunizations, diagnoses.",
+        "fires": "Claims exist in the enrollee's name and the record holds no visits, no immunizations, and no diagnoses.",
+        "clears": "The person's actual record history, from any source the program trusts. If the person is real, the record joins and the flag dies.",
+    },
+    "billed_after_death": {
+        "rule": "Compare each claim date against the enrollee's death date in the record.",
+        "fires": "A claim is dated after the recorded date of death.",
+        "clears": "A corrected death date, or evidence the service was delivered before death and only billed late with the right date of service.",
+    },
+    "stacked_prescribing": {
+        "rule": "List each enrollee's overlapping GLP-1 prescriptions and who wrote and supplied them.",
+        "fires": "More than one GLP-1 is active, from more than one prescriber, or with a cash, off-record source.",
+        "clears": "One prescriber's reconciled medication list showing the overlap was deliberate, sequential, or already stopped.",
+    },
+}
 
-def load_sample() -> dict:
-    return json.loads(_DATA.read_text())
+
+def state_list() -> list[tuple[str, str]]:
+    """(slug, state name) for every loaded state sample, in menu order."""
+    return [(slug, name) for slug, (name, _f) in STATES.items()]
+
+
+def load_sample(state: str = DEFAULT_STATE) -> dict:
+    if state not in STATES:
+        raise KeyError(f"unknown state sample: {state}")
+    return json.loads((_DATA_DIR / STATES[state][1]).read_text())
 
 
 def compute_flags(sample: dict) -> list[dict]:
