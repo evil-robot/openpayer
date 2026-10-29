@@ -95,9 +95,9 @@ def data_inventory(db_path: Path = DB_PATH) -> dict:
     inv["provider_groups"] = con.execute("SELECT count(DISTINCT tin) FROM rates WHERE tin <> ''").fetchone()[0]
     inv["providers_named"] = con.execute("SELECT count(DISTINCT provider_name) FROM rates WHERE provider_name <> ''").fetchone()[0]
     inv["by_payer"] = [
-        {"payer": r[0], "rows": r[1], "files": r[2]}
+        {"payer": r[0], "rows": r[1], "files": r[2], "groups": r[3]}
         for r in con.execute(
-            "SELECT payer, count(*), count(DISTINCT loaded_file) FROM rates GROUP BY payer ORDER BY payer"
+            "SELECT payer, count(*), count(DISTINCT loaded_file), count(DISTINCT CASE WHEN tin <> '' THEN tin END) FROM rates GROUP BY payer ORDER BY payer"
         ).fetchall()
     ]
     inv["by_code"] = [

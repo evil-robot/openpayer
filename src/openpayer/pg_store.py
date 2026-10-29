@@ -209,7 +209,7 @@ def data_inventory() -> dict:
         inv["provider_groups"] = con.execute("SELECT count(DISTINCT tin) AS n FROM rates WHERE tin <> ''").fetchone()["n"]
         inv["providers_named"] = con.execute("SELECT count(DISTINCT provider_name) AS n FROM rates WHERE provider_name <> ''").fetchone()["n"]
         inv["by_payer"] = con.execute(
-            "SELECT payer, count(*) AS rows, count(DISTINCT loaded_file) AS files FROM rates GROUP BY payer ORDER BY payer"
+            "SELECT payer, count(*) AS rows, count(DISTINCT loaded_file) AS files, count(DISTINCT NULLIF(tin, '')) AS groups FROM rates GROUP BY payer ORDER BY payer"
         ).fetchall()
         inv["by_code"] = con.execute(
             "SELECT billing_code, billing_code_type, count(*) AS rows FROM rates GROUP BY billing_code, billing_code_type ORDER BY billing_code"

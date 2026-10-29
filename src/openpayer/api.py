@@ -531,6 +531,97 @@ def _corpus_total_line(inv: dict) -> str:
     )
 
 
+_PAYER_SHAPE_NOTES = {
+    "Aetna": (
+        "Publishes a direct list of 80 files instead of one index, and we pulled the first 6. "
+        "Each file keeps roughly 6,500 of our rows, but the same provider groups, about 196 tax IDs, "
+        "recur across its plan variants, so its rows repeat its facts several times over. "
+        "The other 74 files would add copies rather than coverage, and its pass stops there by design."
+    ),
+    "UnitedHealthcare": (
+        "Its index lists 1,013 entries that dedupe to 77 files. The 40 smallest are mostly tiny "
+        "employer plan files. Everything after that is a 2.5 to 9.4 GB book, and the one that finished "
+        "repeated, row for row, rates already in the corpus from another of its books. For these codes "
+        "it publishes one national schedule under many covers. Its index is dated 2026-11-01 and was "
+        "posted before November began."
+    ),
+    "Elevance Anthem BCBS": (
+        "Its index is the largest here, at least 250,000 entries, with 1,721 distinct files inside "
+        "the first 5,000 entries alone. The 60 smallest files held almost none of our codes. The next "
+        "size band carried real books, which is why this source is now the broadest in the corpus. "
+        "Its giant national books remain unpulled; each takes hours and they are opened only deliberately."
+    ),
+    "Cigna": (
+        "Its index holds about 101,000 files, and the two pulled already meet our group target for "
+        "every code. It serves plain JSON at addresses ending in .json.gz, which our first reader "
+        "trusted and failed on; the reader now sniffs the first bytes of every file instead of "
+        "believing its name."
+    ),
+    "Cox HealthPlans": (
+        "A small regional plan whose whole 89-file index has been attempted; 53 files held rates. "
+        "Its files name providers by NPI but carry no tax IDs, so its provider-group count reads "
+        "zero in our tables. Read its figures as rates, not groups."
+    ),
+    "Humana": (
+        "Nothing yet. Its files sit behind a developer portal, and we have not found a "
+        "machine-readable index we can pull from. It stays in the list so the gap is visible "
+        "rather than silent."
+    ),
+}
+
+_DATA_LESSONS = [
+    "Rows are not evidence. Plan books repeat the same price for the same group under many covers, so every count on this site travels with its provider-group count and its distinct-price count.",
+    "The smallest files are the least typical files a payer publishes. Ordering by size buys speed, and the first files from any source are tiny plans that often hold none of our codes.",
+    "A pull stops at 150 provider groups per code for a payer. Past that, more files mostly recount groups already in the corpus.",
+    "An index date is the payer's own label, and payers post next month's index before the month begins. Freshness is measured against that date and says so when the date is still ahead.",
+    "A provider group is one tax ID, the same definition in the charts, the tables, and the flags. A rate filed without a tax ID counts as a rate, never as a group.",
+    "Only the rows for the eight codes are kept, each with the address of the file it came from. The raw payer files, some of them 15 GB, are streamed once and not retained, and a per-file ledger lets every later pull resume instead of repeat.",
+]
+
+
+def _data_reviewed_section(inv: dict, details: list[dict] | None = None) -> str:
+    """'The data we reviewed': what was read, what shape it arrived in.
+
+    Counts are live from the inventory; the shape notes are curated and
+    dated, and change only when a pull teaches us something new. This
+    is the institutional memory of the corpus, written for the reader
+    rather than the operator.
+    """
+    if details is None:
+        from .benchmarks import sources_detail
+
+        details = sources_detail()
+    by_payer = {str(p["payer"]): p for p in inv.get("by_payer", [])}
+    parts = [
+        "<h2 id='data-reviewed'>The data we reviewed</h2>"
+        "<p>Every rate on this site came out of the files below. This section says what we actually "
+        "read, what shape it arrived in, and what it taught us, so the numbers above it can be judged "
+        "rather than trusted. Counts are live from the database on every load. The notes are ours, "
+        "last reviewed on October 29, 2026, and they change only when a pull teaches us something new.</p>"
+    ]
+    for d in details:
+        payer = str(d["payer"])
+        ip = by_payer.get(payer, {})
+        nrows = int(ip.get("rows") or 0)
+        if nrows:
+            nfiles = int(ip.get("files") or 0)
+            counts = (
+                f"In the corpus: {nrows:,} rates from {nfiles} file{'s' if nfiles != 1 else ''}, "
+                f"covering {int(ip.get('groups') or 0):,} provider groups."
+            )
+        else:
+            counts = "In the corpus: nothing yet."
+        note = _PAYER_SHAPE_NOTES.get(payer, "")
+        parts.append(
+            f"<h3>{html.escape(payer)}</h3><p class='coverage'>{html.escape(counts)}</p>"
+            + (f"<p>{html.escape(note)}</p>" if note else "")
+        )
+    parts.append("<h3>What the files taught us</h3><ul>")
+    parts.extend(f"<li>{html.escape(lesson)}</li>" for lesson in _DATA_LESSONS)
+    parts.append("</ul>")
+    return "".join(parts)
+
+
 _FLAG_LABELS = {
     "median_far_above_medicare": "Median far above Medicare",
     "extreme_rates": "Rates at ten times Medicare or more",
@@ -964,7 +1055,7 @@ def home(request: Request) -> str:
         f"<p class='coverage'>Coverage right now: {html.escape(coverage)}. {inv['total_rows']} rate rows kept for {len(codes)} codes. Codes in scope: "
         + ", ".join(html.escape(c.code) for c in codes)
         + ".</p>"
-        + tools + market + "".join(sections) + _sources_section() + volume + how
+        + tools + market + "".join(sections) + _sources_section() + _data_reviewed_section(inv) + volume + how
         + "<p class='note'>Source: payer machine readable files published under CMS price transparency rules. Counts sit beside every benchmark so a thin sample is never dressed up as a market.</p>"
         + '<div id="tip" role="status"></div>' + _EXPLORE_SCRIPT + "</div></body></html>"
     )
