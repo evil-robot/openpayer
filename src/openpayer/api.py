@@ -540,9 +540,12 @@ _PAYER_SHAPE_NOTES = {
     ),
     "UnitedHealthcare": (
         "Its index lists 1,013 entries that dedupe to 77 files. The 40 smallest are mostly tiny "
-        "employer plan files. Everything after that is a 2.5 to 9.4 GB book, and the one that finished "
-        "repeated, row for row, rates already in the corpus from another of its books. For these codes "
-        "it publishes one national schedule under many covers. Its index is dated 2026-11-01 and was "
+        "employer plan files. Everything after that is a 2.5 to 9.4 GB book. The first large book to "
+        "finish repeated, row for row, rates already in the corpus, so its national books repeat one "
+        "schedule under many covers. A state book finished later proved different: of its 3,214 kept "
+        "rows only 288 were already known, and it brought about 200 new provider groups for each "
+        "consult code, so the remaining state books cannot be assumed to be copies. Each one takes "
+        "hours, so they are opened one at a time, on purpose. Its index is dated 2026-11-01 and was "
         "posted before November began."
     ),
     "Elevance Anthem BCBS": (
