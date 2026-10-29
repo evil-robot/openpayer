@@ -1,6 +1,10 @@
 # OpenPayer Specification
 
-Version 0.2, October 28, 2026. Status: live Cox sample, national payers pulling, pre-release.
+Version 0.3, October 29, 2026. Status: live at openpayer.medtruth.care
+(MedTruth-gated). Corpus: 96,201 rate rows from 131 kept files across
+five payers, 3,120 provider groups, plus the CMS pilot prototype with
+three synthetic state samples. Pre-release; a rename decision is open
+(see docs/STRATEGY.md).
 
 ## 1. Purpose
 
@@ -36,13 +40,16 @@ open, auditable, and self-hostable.
 
 ### Later, in order
 
-1. Percent of Medicare (Medicare Physician Fee Schedule joined per code)
-2. Provider geography and specialty (NPPES join on pulled NPIs only), then
-   a map view
-3. Hospital Price Transparency MRFs (different schema, second source type)
-4. Scheduled quarterly refresh matching the CMS-9882-F cadence
-5. Additional national payers, then the long tail of plans
-6. A published Parquet dataset for the configured codes
+1. Provider geography and specialty (NPPES join on pulled NPIs only), then
+   a map view (loader ready, waiting on the CMS bulk host)
+2. Hospital Price Transparency MRFs (different schema, second source type)
+3. Additional national payers, then the long tail of plans
+4. A published Parquet dataset for the configured codes
+
+Done since 0.2: percent of Medicare (live, section 11), review flags
+with dossiers, the pilot prototype with three synthetic state samples
+and its glass box, and a monthly scheduled refresh (section 13; the
+cadence tightens to quarterly with CMS-9882-F).
 
 ## 3. Legal basis and constraints
 
@@ -75,8 +82,8 @@ open, auditable, and self-hostable.
 |---|---|---|---|
 | Payer TiC index (table of contents) JSON | Links to every in-network MRF per plan | Quarterly (CMS-9882-F) | Live |
 | Payer TiC in-network MRFs | Negotiated rates by code and provider group | Quarterly | Live |
-| NPPES NPI registry (CMS) | Provider name, practice address, taxonomy | Monthly | Stubbed |
-| Medicare Physician Fee Schedule (CMS) | Medicare rate per code and locality | Annual/quarterly | Stubbed |
+| NPPES NPI registry (CMS) | Provider name, practice address, taxonomy | Monthly | Loader ready, not populated (CMS bulk host down) |
+| Medicare Physician Fee Schedule (CMS) | Medicare rate per code and locality | Annual/quarterly | Live (national rates; locality later) |
 | Hospital Price Transparency MRFs | Standard charges per hospital | Annual | Planned |
 
 Discovery: each payer publishes a table-of-contents JSON. The system reads
@@ -84,17 +91,20 @@ Discovery: each payer publishes a table-of-contents JSON. The system reads
 Sources are configured in `config/sources.json`. A source with no URL is
 skipped.
 
-Configured payers (measured 2026-10-27): Cox HealthPlans (index 2026-09-16,
-89 files); UnitedHealthcare (UnitedHealthcare Insurance Company index,
-1,013 files); Aetna (Aetna Life Insurance Company via the HealthSparq
-manifest at `mrf.healthsparq.com`, 5,697 deduped in-network files);
-Cigna (Cigna Health Life Insurance Company index, 101,395 files, mixed
-`.json.gz` and `.zip` payloads); Elevance Anthem BCBS (national S3
-index, about 43 million files). Humana is intentionally unconfigured:
-its published location sits behind a bot wall and trackers found no
-current files there (none for August 2026). Indexes are republished
-monthly with the month in the file name; dated URLs are bumped at each
-refresh.
+Configured payers (corpus measured live 2026-10-29): Elevance Anthem
+BCBS 46,534 rows / 51 files / 1,857 provider groups (national S3 index,
+at least 250,000 entries, count capped); Aetna 38,773 / 6 / 196 (direct
+list of 80 files, saturated); UnitedHealthcare 7,694 / 19 / 925 (index
+1,013 entries, 77 distinct files); Cigna 2,693 / 2 / 200 (index 101,395
+files, mixed `.json.gz` and `.zip` payloads); Cox HealthPlans 507 / 53 /
+0 groups (89-file index exhausted; NPI-only files, no tax IDs). Humana
+is parked: its files sit behind a developer portal and no
+machine-readable index has been found; it stays configured with an
+empty source so the gap is visible. Indexes are republished monthly
+with the month in the file name; dated URLs are bumped at each refresh.
+A payer-declared index date in the future (UnitedHealthcare declared
+2026-11-01 on a file pulled 2026-10-28) is shown as declared, never
+clamped to today.
 
 ## 6. The code allowlist (core design decision)
 
@@ -111,13 +121,20 @@ National payer data is hundreds of terabytes. OpenPayer never stores it.
   even across many payers, and peak disk during a pull is one compressed
   MRF (downloaded to temp, parsed, deleted).
 
-Sample state (Oct 28, 2026): codes 99213, 99446, 99447, 99448, 99449,
-99451, 99452, G2212. Cox HealthPlans is fully pulled (507 rows from 53
-files). The four national payers above are configured and pull in
-bounded first passes (section 7). G2212 returned zero rows at Cox and
-is reported as n=0; a full scan of one Aetna file shows Aetna does
-publish G2212 rates, so its state updates when the Aetna pull lands.
-See README for the benchmark table.
+Sample state (Oct 29, 2026): codes 99213, 99446, 99447, 99448, 99449,
+99451, 99452, G2212. Corpus 96,201 rows (per-payer counts in section 5).
+G2212 is published by the national payers but unevenly: hundreds of
+groups at UnitedHealthcare, nearly absent at Elevance (3 groups), and
+n=0 at Cox, reported as n=0. A provider group is always a distinct
+non-empty tax ID, the same definition in charts, tables, flags, and
+the corpus meter; a rate filed without a tax ID counts as a rate,
+never as a group. Rows inflate when plan books repeat one schedule, so
+every count travels with its group count and distinct-price count.
+A new file's yield is never assumed from its payer: the duplication
+check counts rows whose (code, rate type, rate, tax ID) already exist
+under another file. UnitedHealthcare's first large book scored
+967/967 duplicates; a later state book scored 288/3,214 and tripled
+its consult-code groups. See README for the benchmark table.
 
 ## 7. Ingest pipeline
 
@@ -249,6 +266,57 @@ amount), then a See the numbers table: payer, rate, rate type,
 provider, TIN, and a source file link per row, plus CSV and JSON
 download of the same rates.
 
+### Homepage additions
+
+- Corpus meter: per-payer rows, kept files, provider groups, and index
+  freshness, computed live on every load
+- Fraud, waste, and abuse review flags (`src/openpayer/flags.py`):
+  payer-by-code medians far above Medicare, extreme rates, placeholder
+  rates, one amount across many groups, and codes a payer does not
+  publish. Each flag carries its evidence and its Medicare basis and
+  links to a dossier at `/flag`. Flags are review signals, never
+  findings, and the wording says so at every appearance
+- "The data we reviewed": live counts plus curated per-payer shape
+  notes and corpus lessons, so a reader can judge the numbers above it
+- Percent of Medicare on benchmarks and code pages (section 11)
+
+### Pilot prototype `/pilot/{state}`
+
+The pre-claim corpus answers what rates should be. The pilot answers
+what happens when CMS hands over one state's claims and records.
+
+- Routes: `/pilot/{state}` (dashboard), `/pilot/{state}/flag/{id}`,
+  `/pilot/{state}/entity/{id}`, `/pilot/{state}/enrollee/{id}`,
+  `/pilot/{state}/onepager`. `/pilot` and `/pilot/onepager` redirect
+  to Minnesota. Unknown states render a plain not-found page
+- States loaded: Minnesota, New York, Florida. Every state sample is
+  synthetic and bannered as invented on every page; no real patient,
+  provider, or claim appears anywhere
+- Samples are generated by `scripts/make_pilot_states.py` (one fixed
+  seed per state, per-state counties, entities, and providers, the
+  same planted cases). Each sample carries its file name, generation
+  date, generator, and seed, and the pages print them
+- Checks (`src/openpayer/pilot.py`, deterministic, no models):
+  duplicative billing, outside scope of practice, specialist vs GP
+  rate mismatch, cash-pay service also billed, ghost enrollee, billed
+  after death, stacked prescribing. Flags recompute from the sample
+  on every page load; nothing is stored
+- Validation gate: enrollee scores out of 10 (identity, condition,
+  continuity); below 8 routes to review. Housing status is context
+  for outreach and is never scored
+- Entity trace: provider, billing entity, parent, siblings tied by
+  parent, address, owner, or registered agent, with flagged dollars
+  across the ownership web
+- Glass box (requirement, not copy): every pilot page separates what
+  is our software (engine, gate, tracing, pricing ruler) from what is
+  the invented example, and every check is stated with what it
+  compares, the exact condition that fires it (`CHECK_GUIDE`), and
+  what would clear it. The one-pager repeats the separation, names
+  its sample provenance, and ends with the ask: an ATO and a sandbox
+  in a jurisdiction of CMS's choosing for a defined pilot term
+- The standalone offline version lives in the cms-pilot-demo project;
+  keep the check logic in sync
+
 ### JSON API
 
 - `GET /api/codes`: configured allowlist
@@ -256,6 +324,7 @@ download of the same rates.
 - `GET /api/aggregate`: all-payer benchmark rows as JSON
 - `GET /api/rates/{code}?payer=`: individual rates (dollar types only)
 - `GET /api/sources`: configured sources with pull status
+- `GET /api/flags`, `/api/flags.csv`: live review flags
 - `.csv` variants: `/api/summary.csv`, `/api/aggregate.csv`,
   `/api/rates/{code}.csv`
 - No data yet returns 404 with a plain reason, never a stack trace
@@ -269,64 +338,80 @@ the cheapest quarter.
 
 Encoding rules (these are requirements, not style):
 
-- Small multiples on ONE shared dollar scale with labeled ticks every
-  $25 from $0: the aggregate strip and every per-payer strip on the
-  page use the same scale. Like compares with like; scale never
-  changes per row.
+- Small multiples on a zero-based dollar scale shared within each
+  code, with labeled ticks: like compares with like; scale never
+  changes inside a code. The scale covers the middle 99 percent of the
+  code's observed rates; prices above it are drawn dotted below the
+  row at their true value and named in the notes, never clipped
+  silently.
 - One row per distinct pay pattern per rate type. Where a payer
   publishes the identical dollar amounts for several codes, those
   codes share one row labeled with every code it covers; the per-code
   facts live in the tables. (Redesign after the first production data
   repeated one distribution six times; see
   `docs/DESIGN-STRIP-REDESIGN.md`.)
-- Dots are observed dollar rates at true positions. Lie factor 1:
-  position is the value, no area or size encoding of quantity. At most
-  240 dots are drawn per row, evenly spaced after sorting, and the row
-  states how many of n are drawn; every rate remains in the tables,
-  downloads, and code pages.
+- The mark is a distinct observed price, printed with its
+  provider-group count: one mark per price at its true position when
+  a row has 30 or fewer distinct prices, $5 bins above that. Lie
+  factor 1: position is the value, and the count is printed as a
+  number beside the mark, never encoded as area or size. Every rate
+  remains in the tables, downloads, and code pages.
 - Middle half: the p25 to p75 interval is a light grey band behind the
-  dots. It is a percentile interval of observed rates, explicitly not a
+  marks. It is a percentile interval of observed rates, explicitly not a
   confidence interval, and the caption says so.
 - Median: a thick vertical tick, with median, middle-half range, and n
   printed as text at the right of every row.
-- Rate type by shape, redundantly with the legend in words: filled dot
-  = negotiated, hollow dot = fee schedule. The chart must survive a
-  grey photocopy and a colorblind reader. House palette only: ink
-  (#13151E), cream (#F0EEEB), and greys. No accent color.
+- Rate type by shape, redundantly with the legend in words: filled
+  mark = negotiated, hollow mark = fee schedule. The chart must survive
+  a grey photocopy and a colorblind reader. MedTruth palette only:
+  white, gray-900 ink, teal, gold, and greys.
 - Percentage rates are excluded (not dollars) and the exclusion is
   stated on the surface.
 - Missing data is explicit: a code with no dollar rates renders a row
   reading "No dollar rates found in the files pulled so far" with n=0.
   Absence is never rendered as a rate of zero.
-- Interaction: hover (or tap) a dot reveals payer, rate type, amount,
-  and provider or NPI. Hover is an addition, never the only path: the
-  benchmark table above and the code page table carry every value in
-  text, and the SVG carries a role and text description for screen
-  readers.
+- Interaction: hover, tap, or keyboard focus on a mark opens a panel
+  that steps price by price, then group by group inside a price, with
+  the exact price linked into the code page. Interaction is an
+  addition, never the only path: the benchmark table above and the
+  code page table carry every value in text, and the SVG carries a
+  role and text description for screen readers.
 - Documentation on the surface: source payer, index date, and the fact
   that counts are observed rates appear directly under the chart.
 
-## 11. Reference data (stubbed, contracts fixed)
+## 11. Reference data
 
-`reference.py` defines the joins. Both return None today, and the UI
-shows nothing (never a placeholder number) until real data loads:
+`reference.py` defines the joins. The UI shows nothing (never a
+placeholder number) where a join has no data:
 
+- `medicare_rate(code)`: LIVE. CMS 2026 Physician Fee Schedule
+  (RVU26A) national rates are bundled at
+  `src/openpayer/data/reference/mpfs.json` (rebuild with
+  `scripts/pull_mpfs.py`). Percent of Medicare is computed per code
+  and shown on benchmarks, code pages, flags, and the pilot ruler.
+  Locality (GPCI) adjustment is not applied; locality rates remain a
+  later step.
 - `nppes_lookup(npi)`: provider name, city, state, ZIP, taxonomy.
-  The loader must join only NPIs present in kept rates.
-- `medicare_rate(code, locality)`: MPFS rate, enabling a percent of
-  Medicare column in benchmarks and on the Market Strip.
+  Loader exists (`scripts/pull_nppes.py`); geography is not populated
+  because the CMS NPPES bulk host was down when attempted. 5,041
+  corpus NPIs are queued for the join. The loader joins only NPIs
+  present in kept rates.
 
 ## 12. Quality and testing
 
-- Tests live in `tests/` and run with `uv run pytest` (18 tests).
+- Tests live in `tests/` and run with `uv run pytest` (56 tests).
   Current coverage: allowlist filtering, the empty-allowlist guard,
   trailing-comma repair with real payer dirt shapes (name in TIN
   block, bare-number IDs, a comma inside text), bare-NPI references,
-  ZIP-wrapped files, streaming index reads with the capped count,
-  resumable downloads against a server that drops connections on
-  purpose, the provider-group sample (fixed and deterministic), and
-  benchmark math including rate-type separation and aggregate payer
-  counts.
+  ZIP-wrapped files, plain JSON served at `.json.gz` addresses
+  (container sniffed from bytes), streaming index reads with the
+  capped count, resumable downloads against a server that drops
+  connections on purpose, the provider-group sample (fixed and
+  deterministic), benchmark math including rate-type separation and
+  aggregate payer counts, strip rendering (distinct prices, group
+  counts, per-code scales), "The data we reviewed" (live counts,
+  never typed), and the pilot: planted cases per state, gate scoring,
+  entity traces, state registry, and the glass box.
 - Rule: every new payer dirt shape found in the wild gets a failing
   test first, then the normalizer.
 - A pull over a new payer is not done until its kept rows load and its
@@ -345,7 +430,16 @@ shows nothing (never a placeholder number) until real data loads:
   house DataSpine pattern: repo is the executed truth, per-file ledger
   makes runs resumable, rows land before status (the table is the
   receipt). Workers 2 per run (memory), no job timeout, per-file
-  Lakebase credential mints.
+  Lakebase credential mints. `smallest_first` ordering (size from HEAD
+  on the first 5,000 index entries) buys cheap coverage; giant books
+  (2.5 to 9.4 GB, hours each) are opened one at a time, deliberately.
+- Unattended: the job is scheduled monthly on Databricks (1st, 11:00
+  UTC, limit 60, workers 1, group cap 300, smallest first, one
+  concurrent run, failure email to the operator), mirrored in
+  `databricks/job.json`. No laptop is in the loop. The one recurring
+  human task is rolling the month-dated index addresses forward in
+  `config/sources.json`; until that is done, scheduled runs re-read
+  the current indexes and the corpus meter ages honestly.
 - Docker: `docker compose up --build` serves on port 8000 with `HOST`
   and `PORT` environment overrides.
 - Cadence: payer indexes republish monthly under dated file names, so
@@ -369,16 +463,32 @@ shows nothing (never a placeholder number) until real data loads:
 | Row grain | About 300 provider groups per large file, fixed by tax-ID hash | One national file otherwise emits 15M+ rows for 8 codes |
 | Pull shape | One Databricks job run per payer, ledgered, coverage stop at 150 groups per code | A sequential all-payer run timed out at 4 hours; reruns must resume |
 | Pull pattern | DataSpine operating pattern (repo as truth, receipt before status) | The house system already proved it on 100+ sources |
+| Pilot checks | Deterministic rules only, no models | Same input, same answer; a CMS reviewer can state every rule in one sentence |
+| Pilot data | Synthetic state samples, generated, seeded, bannered | Shows the software without anyone's records; planted cases give known right answers |
+| Glass box | Real software vs invented example, every check with what clears it, on every pilot page | The audience must never mistake an example for evidence, or a flag for a finding |
+| Refresh | Monthly Databricks schedule, smallest first; giant books deliberate | Keeps the corpus widening unattended without paying hours per book by default |
+| New-file yield | Duplication check per file before calling a payer done | One UnitedHealthcare book was 967/967 duplicates; the next was 288/3,214. Payer-level guesses fail |
 
 ## 15. Open questions
 
-- G2212 and other Medicare-specific HCPCS: Cox publishes none, but a
-  full scan of one Aetna file found 2.26M G2212 rows, so commercial
-  publication exists. Its benchmark state settles when the Aetna pull
-  lands; the MPFS loader remains the fallback reference.
-- Humana: no readable index exists today (bot-walled published
-  location, no current files found). Recheck monthly; add with a
-  config-only change when one appears.
+- Product name: Trek Health launched a product called OpenPayer in
+  February 2026, in this field, before this repo existed. The gated
+  demo is unaffected; a public launch under this name is exposed.
+  Rename before any public launch (candidates and evidence in
+  docs/STRATEGY.md). Decision: JAS.
+- UnitedHealthcare state books: one landed book brought about 200 new
+  groups per code, so the remaining state books are real coverage,
+  at hours each. Pull them one at a time on purpose, or leave them
+  to the monthly smallest-first schedule, which will not reach them
+  soon. Decision: JAS.
+- Elevance giant national books: unpulled, hours each, with memory
+  failures at higher worker counts. Open deliberately or not at all.
+- NPPES geography: loader ready, CMS bulk host was down. Retry, then
+  enable dossier geography and later a GPCI locality ruler. Exposure
+  math, when it lands, must be labeled modeled, never observed loss.
+- Humana: no readable machine-readable index found (developer portal
+  only). Recheck monthly; add with a config-only change when one
+  appears.
 - Long-tail coverage: at what payer count does the hosted demo need
   object storage for kept extracts, and who pays for it? (Kept data is
   megabytes today; bandwidth and scan time, not storage, are the
@@ -394,9 +504,13 @@ shows nothing (never a placeholder number) until real data loads:
       rendered from real pulled rates, n shown everywhere
 - [x] Every rate links to its source payer file
 - [x] Landing page states capabilities, data volume, and gaps honestly
-- [x] Test suite green
-- [ ] Second payer (one national) pulled with the same config-only change
-- [ ] Four national payers live with coverage lines and payer counts
-      matching the database
+- [x] Test suite green (56 tests)
+- [x] Second payer (one national) pulled with the same config-only change
+- [x] Four national payers live with coverage lines and payer counts
+      matching the database (96,201 rows, verified 2026-10-29)
+- [x] Percent of Medicare on benchmarks, code pages, and flags
+- [x] Review flags with dossiers, corpus meter, "The data we reviewed"
+- [x] Pilot prototype: three synthetic state samples, glass box,
+      validation gate, entity tracing, printable one-pagers
+- [x] Monthly unattended ingest schedule on Databricks
 - [ ] NPPES names and geography on kept providers
-- [ ] Percent of Medicare on benchmarks
