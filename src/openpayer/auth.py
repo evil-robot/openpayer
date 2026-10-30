@@ -80,6 +80,25 @@ def verify_token(raw: str) -> str | None:
     return row[0]
 
 
+def token_state(raw: str) -> str:
+    """Why a token will not verify: spent, expired, unknown, or ok.
+
+    Lets the failure page tell the person which thing happened
+    (a spent link usually means they already signed in) instead of
+    one vague refusal for every case.
+    """
+    con = _connect()
+    row = con.execute("SELECT expires, used FROM magic_tokens WHERE token_hash=?", [_hash(raw)]).fetchone()
+    con.close()
+    if not row:
+        return "unknown"
+    if row[1]:
+        return "spent"
+    if row[0] < time.time():
+        return "expired"
+    return "ok"
+
+
 def create_session(email: str) -> str:
     raw = secrets.token_urlsafe(32)
     con = _connect()

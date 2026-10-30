@@ -27,6 +27,47 @@ def test_token_is_single_use(env):
     assert auth.verify_token("bogus") is None
 
 
+def test_token_state_names_the_failure(env):
+    raw = auth.create_token("a@medtruth.care")
+    assert auth.token_state(raw) == "ok"
+    auth.verify_token(raw)
+    assert auth.token_state(raw) == "spent"
+    assert auth.token_state("bogus") == "unknown"
+
+
+def test_spent_link_sends_signed_in_browser_home(env):
+    from openpayer.api import app
+
+    client = TestClient(app, follow_redirects=False)
+    raw = auth.create_token("a@medtruth.care")
+    assert client.get(f"/auth/verify?token={raw}").status_code == 303
+    # Same link tapped again in the same browser: home, not an error.
+    again = client.get(f"/auth/verify?token={raw}", follow_redirects=False)
+    assert again.status_code == 303
+    assert again.headers["location"] == "/"
+
+
+def test_spent_link_without_session_explains_itself(env):
+    from openpayer.api import app
+
+    raw = auth.create_token("a@medtruth.care")
+    auth.verify_token(raw)
+    fresh = TestClient(app, follow_redirects=False)
+    resp = fresh.get(f"/auth/verify?token={raw}")
+    assert resp.status_code == 200
+    assert "already used" in resp.text
+    assert "Open OpenPayer" in resp.text
+
+
+def test_expired_and_unknown_links_get_their_own_pages(env):
+    from openpayer.api import app
+
+    client = TestClient(app, follow_redirects=False)
+    resp = client.get("/auth/verify?token=bogus")
+    assert resp.status_code == 200
+    assert "will not work" in resp.text
+
+
 def test_gate(env):
     from openpayer.api import app
 

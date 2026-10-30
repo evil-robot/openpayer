@@ -171,13 +171,36 @@ def confirm_page(token: str = ""):
 
 
 @app.get("/auth/verify")
-def auth_verify(token: str = ""):
+def auth_verify(request: Request, token: str = ""):
+    # Already signed in on this browser? A spent link then means the
+    # person tapped the email again after getting in. Send them home
+    # instead of telling them the link failed.
+    if authmod.session_email(request.cookies.get(authmod.COOKIE)):
+        return RedirectResponse("/", status_code=303)
     email = authmod.verify_token(token)
     if not email:
+        state = authmod.token_state(token)
+        if state == "spent":
+            return _bare(
+                "Link already used",
+                "<h1>That link was already used</h1>"
+                "<p class='auth-sub'>Sign-in links work once. If you just pressed the button and saw "
+                "the site, you are signed in on this device. If someone or something opened the link "
+                "before you, request a fresh one and use the newest email.</p>"
+                "<p><a href='/'>Open OpenPayer</a></p>"
+                "<p><a href='/sign-in'>Request a new link</a></p>",
+            )
+        if state == "expired":
+            return _bare(
+                "Link expired",
+                "<h1>That link is past 7 days</h1>"
+                "<p class='auth-sub'>Request a fresh one and use the newest email.</p>"
+                "<p><a href='/sign-in'>Request a new link</a></p>",
+            )
         return _bare(
-            "Link expired",
+            "Link not recognized",
             "<h1>That link will not work</h1>"
-            "<p class='auth-sub'>It is spent or past 7 days. Request a fresh one and use the newest email.</p>"
+            "<p class='auth-sub'>It does not match any link we sent. Request a fresh one and use the newest email, in full.</p>"
             "<p><a href='/sign-in'>Request a new link</a></p>",
         )
     resp = RedirectResponse("/", status_code=303)
